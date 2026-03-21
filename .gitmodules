@@ -1,0 +1,4 @@
+[submodule ".agents/skills/identity"]
+	path = .agents/skills/identity
+	url = https://github.com/Jopie64/identity-agent-skill.git
+	branch = main

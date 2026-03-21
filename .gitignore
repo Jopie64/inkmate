@@ -1,0 +1,52 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Env
+.env
+.env.deploy
+
+.vercel
+.env*.local
+
+# Database & Data
+*.db
+chroma_data/
+data/
+
+# Temporary files
+.commit_msg.txt
+
+# Docker
+nastermind*.tar
+
+# Temporary docs
+.docs/
+
+# Tests
+.ts_errors.txt
+test_output.txt
+test_err.txt
+ts_out.txt
+run_test.ts
