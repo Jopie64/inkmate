@@ -26,6 +26,9 @@ Ik wil graag de volgende workflow hanteren:
 * Alle code en documentatie files in het engels
 * De app is multilingual, in eerste instantie in het engels en nederlands
 * Er is een optie om het boek te downloaden als pdf
+* Er is een optie om een deel van het boek te downloaden als pdf (h1-h3, h4-h6, etc)
+* Er is een optie om dingen voor te lezen (text to speech). De speed is instelbaar.
+* De app is mobile friendly
 
 * In de settings kan de user de groq of openrouter api key invullen en het model kiezen
 
