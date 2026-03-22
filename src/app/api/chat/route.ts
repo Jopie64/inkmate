@@ -38,11 +38,7 @@ export async function POST(req: Request) {
 
     console.log("[Chat API POST] Stream started for coreMessages length:", coreMessages.length);
 
-    return result.toTextStreamResponse({
-      headers: {
-        'X-Vercel-AI-Data-Stream': 'v1' // Still passed just in case the client requires it
-      }
-    });
+    return result.toTextStreamResponse();
   } catch (err: any) {
     console.error("[Chat API Error]:", err);
     return new Response(err.message || "Unknown server error during AI response.", { status: 500 })
