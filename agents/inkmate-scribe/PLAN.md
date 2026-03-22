@@ -1,17 +1,17 @@
 # inkmate-scribe: Plan & Intentions
 
 ## Current Focus
-- **AI Tooling (Context Engine):** De chat functionaliteit (`app/api/chat/route.ts`) voorzien van Vercel AI SDK tools waarmee de assistent hoofdstukken kan lezen, aanpassen en aanmaken, zodat de gebruiker via een chatgesprek direct de content kan sturen.
+- **AI Tooling (Context Engine):** Provide the chat functionality (`app/api/chat/route.ts`) with Vercel AI SDK tools, enabling the assistant to autonomously read, update, and create chapters directly governed by user chat input.
 
 ## Next Pulse Goals
-- Bestaande backend server actions (`src/app/actions/chapters.ts` / `src/lib/github.ts`) inpakken als SDK `tools` via de `zod` schema's.
-- `page.tsx` chat frontend context-vinkjes (zoals "Description", "Characters") meesturen in de request body, zodat de systeemprompt dynamisch kan ingrijpen.
+- Wrap existing backend server actions (`src/app/actions/chapters.ts` / `src/lib/github.ts`) into SDK `tools` via zod schemas.
+- Ensure the `page.tsx` chat frontend context checkboxes (like "Description", "Characters") are passed in the request body to dynamically alter the system prompt.
 
 ## Open Questions
-- Hoe gaat de AI om met grote lappen tekst bij het schrijven van hoofdstukken? (`max_tokens` limitaties overwegen).
-- Moet de AI om bevestiging (tool confirmation) vragen voordat hij een heel hoofdstuk overschrijft, of mag hij via "auto-commits" zelfstandig handelen zolang version history (git) het toelaat?
+- How does the AI handle writing massive blocks of text? (Review `max_tokens` limitations).
+- Should the AI ask for explicit tool confirmation before overwriting an entire chapter, or can it act freely since version history (Git) provides a safety net?
 
 ## Future Intentions
-- Lokale `localStorage` implementeren in de Chat tab om onverzonden draft-berichten te bewaren, volgens de vereisten in `SPECS.md`.
-- Diff Viewer (History tab) bouwen voor de git-commits per bestand (waarin menselijke- en AI-edits visueel vergeleken kunnen worden).
-- PDF Export & TTS (Read Aloud) implementeren vanuit de project description/chapters.
+- Implement local `localStorage` in the Chat tab to retain unsent draft messages (see `SPECS.md`).
+- Build a Diff Viewer (History tab) for file-specific Git commits (to visually compare human and AI edits).
+- Implement PDF Export & TTS (Read Aloud) functionalities for project descriptions and chapters.

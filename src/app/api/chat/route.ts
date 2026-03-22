@@ -50,8 +50,24 @@ export async function POST(req: Request) {
       .map((m: any) => ({
         id: m.id || crypto.randomUUID(),
         role: m.role,
-        parts: m.parts || (m.content ? [{ type: 'text', text: m.content }] : []),
+        parts: (m.parts || (m.content ? [{ type: 'text', text: m.content }] : [])).map((part: any) => {
+           // For typed tool parts (tool-NAME), the SDK expects the tool name to be in the type suffix
+           // or explicitly in toolName for dynamic tools.
+           if (part.type && part.type.startsWith('tool-') && part.type !== 'tool-call' && part.type !== 'tool-result') {
+              const toolName = part.type.replace('tool-', '');
+              return { 
+                ...part, 
+                toolName: part.toolName || toolName,
+                // Ensure legacy result/args fields are mapped to output/input
+                output: part.output !== undefined ? part.output : part.result,
+                input: part.input !== undefined ? part.input : part.args,
+              };
+           }
+           return part;
+        }),
       }));
+
+    console.log("[Chat API POST] Final uiMessages Sample (last message parts):", JSON.stringify(uiMessages[uiMessages.length - 1]?.parts, null, 2));
 
     const chatAgent = new ToolLoopAgent({
       model: openai(modelName),
