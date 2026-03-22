@@ -21,20 +21,13 @@ export async function POST(req: Request) {
 
     const modelName = process.env.AI_MODEL || 'gpt-4o'
 
-    const result = streamText({
+    const result = await streamText({
       model: openai(modelName),
       messages,
     })
 
-    // Fallback voor verschillende Vercel AI SDK versies (v3.1 tot v4+)
-    const responseMethod = (result as any).toDataStreamResponse || (result as any).toAIStreamResponse;
-    if (responseMethod) {
-      return responseMethod.call(result);
-    }
-    
-    // Mocht het nog ouder zijn, of specifiek textueel:
     // @ts-ignore
-    return result.toTextStreamResponse()
+    return result.toDataStreamResponse()
   } catch (err: any) {
     return new Response(err.message || "Unknown server error during AI response.", { status: 500 })
   }
