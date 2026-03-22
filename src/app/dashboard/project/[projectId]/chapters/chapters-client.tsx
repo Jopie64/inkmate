@@ -87,7 +87,7 @@ export function ChaptersClient({ projectId, initialChapters }: { projectId: stri
       </div>
       
       <div className="flex-1 flex flex-col bg-zinc-900/10">
-        {!selectedId && !isEditing ? (
+        {!selectedId && !isEditing && !content.trim() && title === "New Chapter" ? (
            <div className="flex-1 flex flex-col items-center justify-center text-zinc-500">
              <BookOpen className="w-12 h-12 mb-4 opacity-20" />
              <p>Select a chapter or create a new one.</p>
