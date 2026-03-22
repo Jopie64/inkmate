@@ -1,18 +1,17 @@
 # inkmate-scribe: Plan & Intentions
 
 ## Current Focus
-- Testen en finetunen van de **Chapters & Editor** tab na de eerste Oplevering.
-- **Context Engine doorkoppen:** De in de UI ingevulde vinkjes meesturen naar de backend (`api/chat/route.ts`) zodat deze geselecteerde GitHub-bestanden ingeladen kunnen worden als context.
+- **AI Tooling (Context Engine):** De chat functionaliteit (`app/api/chat/route.ts`) voorzien van Vercel AI SDK tools waarmee de assistent hoofdstukken kan lezen, aanpassen en aanmaken, zodat de gebruiker via een chatgesprek direct de content kan sturen.
 
 ## Next Pulse Goals
-- **ToolLoopAgent uitbreiding:** De AI agent in de chat-backend voorzien van GitHub Data Tools (de functies in `lib/github.ts`) zodat de AI specifieke bestanden op aanvraag van de gebruiker (of automatisch o.b.v. de Context Engine vinkjes) kan inlezen tijdens inference.
-- Lokale `localStorage` implementeren in de Chat tab om onverzonden draft-berichten te bewaren, volgens de vereisten in `SPECS.md`.
+- Bestaande backend server actions (`src/app/actions/chapters.ts` / `src/lib/github.ts`) inpakken als SDK `tools` via de `zod` schema's.
+- `page.tsx` chat frontend context-vinkjes (zoals "Description", "Characters") meesturen in de request body, zodat de systeemprompt dynamisch kan ingrijpen.
 
 ## Open Questions
-- Werkt de OAuth + Chapter opslaan GitHub flow met grote MD content volledig naar wens of lopen we tegen Vercel payload/rate limits aan?
-- Hoe laten we de UUID mapping in `index.json` en de "Delete Chapter" logica vlekkeloos samenwerken met Octokit in de nabije toekomst?
+- Hoe gaat de AI om met grote lappen tekst bij het schrijven van hoofdstukken? (`max_tokens` limitaties overwegen).
+- Moet de AI om bevestiging (tool confirmation) vragen voordat hij een heel hoofdstuk overschrijft, of mag hij via "auto-commits" zelfstandig handelen zolang version history (git) het toelaat?
 
 ## Future Intentions
-- Chat Sessions forking toevoegen aan de frontend.
-- Diff Viewer (History tab) bouwen voor de git-commits per bestand.
+- Lokale `localStorage` implementeren in de Chat tab om onverzonden draft-berichten te bewaren, volgens de vereisten in `SPECS.md`.
+- Diff Viewer (History tab) bouwen voor de git-commits per bestand (waarin menselijke- en AI-edits visueel vergeleken kunnen worden).
 - PDF Export & TTS (Read Aloud) implementeren vanuit de project description/chapters.

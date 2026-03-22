@@ -3,10 +3,26 @@
 import { useChat } from "@ai-sdk/react"
 import { Send, Bot, User, CheckSquare, Square, Settings } from "lucide-react"
 import { useState } from "react"
+import { useParams } from "next/navigation"
 
 export default function ChatsPage() {
+  const params = useParams()
+  const projectId = params.projectId as string
+
+  const [contextConfig, setContextConfig] = useState({
+    description: true,
+    chapterSummaries: true,
+    lastTwoChapters: true,
+    chatHistory: true,
+    characters: true,
+  })
+
   // @ts-ignore - Bypass version-specific type mismatches in Vercel AI SDK
   const { messages, sendMessage, status, error } = useChat({
+    body: {
+      projectId,
+      contextConfig
+    },
     onFinish: (options: any) => {
       console.log("[useChat onFinish]: Message complete", options);
     },
@@ -24,16 +40,8 @@ export default function ChatsPage() {
     setInput("")
   }
 
-  const [contextConfig, setContextConfig] = useState({
-    description: true,
-    chapterSummaries: true,
-    lastTwoChapters: true,
-    chatHistory: true,
-    characters: true,
-  })
-
   const toggleContext = (key: keyof typeof contextConfig) => {
-    setContextConfig(prev => ({ ...prev, [key]: !prev[key] }))
+    setContextConfig((prev: any) => ({ ...prev, [key]: !prev[key] }))
   }
 
   return (
@@ -82,7 +90,7 @@ export default function ChatsPage() {
                   </div>
                 )}
                 
-                <div className={`px-5 py-3 rounded-2xl max-w-[85%] ${
+                <div className={`px-5 py-3 rounded-2xl max-w-[85%] flex-col gap-2 flex ${
                   m.role === 'user' 
                     ? 'bg-emerald-600/20 border border-emerald-500/30 text-emerald-50' 
                     : 'bg-zinc-800/50 border border-zinc-700/50 text-zinc-100'
@@ -90,6 +98,15 @@ export default function ChatsPage() {
                   <div className="whitespace-pre-wrap text-sm leading-relaxed">
                     {m.role === 'user' ? m.content : m.parts?.map((part: any, i: number) => {
                       if (part.type === 'text') return <span key={i}>{part.text}</span>;
+                      if (part.type === 'tool-saveChapter') {
+                        return <div key={i} className="text-xs text-orange-400 italic bg-orange-950/30 border border-orange-900/50 p-2 rounded-md my-2 block">📝 {part.state === 'output-available' ? `Chapter saved: ${part?.output?.title || ''}` : "Saving chapter..."}</div>
+                      }
+                      if (part.type === 'tool-listChapters') {
+                         return <div key={i} className="text-xs text-blue-400 italic bg-blue-950/30 border border-blue-900/50 p-2 rounded-md my-2 block">🔍 {part.state === 'output-available' ? "Chapters read" : "Fetching chapters..."}</div>
+                      }
+                      if (part.type === 'tool-readChapter') {
+                         return <div key={i} className="text-xs text-purple-400 italic bg-purple-950/30 border border-purple-900/50 p-2 rounded-md my-2 block">📖 {part.state === 'output-available' ? "Content read" : "Fetching chapter content..."}</div>
+                      }
                       return null;
                     })}
                   </div>
@@ -117,7 +134,7 @@ export default function ChatsPage() {
               <textarea
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask your AI co-writer..."
+                placeholder="Ask your AI co-writer (e.g. 'Write an introduction...')..."
                 className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-4 pr-12 py-4 text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 resize-none min-h-[56px] max-h-48 scrollbar-hide"
                 rows={1}
                 onKeyDown={(e) => {

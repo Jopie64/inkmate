@@ -1,11 +1,14 @@
 import { createOpenAI } from '@ai-sdk/openai'
 import { createAgentUIStreamResponse, ToolLoopAgent } from 'ai'
+import { listChaptersTool, readChapterTool, saveChapterTool } from '@/lib/agents/tools'
+import { auth } from '@/auth'
+import { getOctokit, getFileContent } from '@/lib/github'
 
 export const maxDuration = 30
 
 export async function POST(req: Request) {
   try {
-    const { messages } = await req.json()
+    const { messages, projectId, contextConfig } = await req.json()
     console.log("[Chat API POST] Received messages request. Length:", messages?.length);
 
     const baseURL = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1"
@@ -21,9 +24,28 @@ export async function POST(req: Request) {
     })
 
     const modelName = process.env.AI_MODEL || 'gpt-4o'
+    
+    const session = await auth();
+    let dynamicSystemPrompt = "Je bent inkmate-scribe, een behulpzame AI co-writer. Je helpt de gebruiker met het schrijven van hun verhaal.";
+    
+    if (session?.user?.name && session.accessToken && projectId) {
+      dynamicSystemPrompt += `\n\nProject ID: ${projectId}`;
+      const octokit = await getOctokit(session.accessToken as string);
+      
+      // Dynamic Context Engine Injection
+      if (contextConfig?.chapterSummaries) {
+        try {
+          const indexStr = await getFileContent(octokit, session.user.name, `${projectId}/index.json`);
+          if (indexStr) {
+            const index = JSON.parse(indexStr);
+            dynamicSystemPrompt += `\n\nBekende hoofdstukken:\n${JSON.stringify(index.chapters || [], null, 2)}`;
+          }
+        } catch (e) { console.error("Could not load summaries context"); }
+      }
+    }
+    
+    dynamicSystemPrompt += `\n\nJe hebt beschikking over tools. Gebruik 'listChapters' om hoofdstukken te vinden, 'readChapter' om hun volledige inhoud te lezen, en 'saveChapter' om ze aan te passen of te creëren (let op, stuur altijd de VOLLEDIGE markdown content terug bij saveChapter, anders wordt het hoofdstuk deels gewist!).`;
 
-    // Vercel AI v6 (and strictly typed Providers) requires purely { role, content }
-    // We filter out any empty assistant responses to prevent API crashes.
     const uiMessages = messages
       .map((m: any) => ({
         id: m.id || crypto.randomUUID(),
@@ -33,6 +55,12 @@ export async function POST(req: Request) {
 
     const chatAgent = new ToolLoopAgent({
       model: openai(modelName),
+      instructions: dynamicSystemPrompt,
+      tools: {
+        listChapters: listChaptersTool,
+        readChapter: readChapterTool,
+        saveChapter: saveChapterTool
+      }
     })
 
     console.log("[Chat API POST] Agent Stream started for uiMessages length:", uiMessages.length);
