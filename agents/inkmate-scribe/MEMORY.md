@@ -24,3 +24,8 @@ Het eerste concept van Inkmate is een verhalen-schrijf applicatie, gehost op Ver
 - "forking" mechanismen voor verhalen/chats. 
 - Git-gebaseerd versiebeheer per story/gebruiker (een technische uitdaging op Vercel die specifieke aandacht vraagt).
 Alle codebase en inline-documentatie dient in het Engels te zijn, de applicatie start veeltalig (Engels, Nederlands).
+
+### On SDKs and Integrations
+- **Vercel AI SDK 6.0+:** De architectuur is overgestapt van pure data-streams naar strakke `UIMessageStream` protocollen. 
+  - Backend: Gebruik `ToolLoopAgent` en `createAgentUIStreamResponse` in de API route (`streamText` is gedepriveerd voor de UI). Zorg dat inkomende berichten strict een `id`, `role`, en `parts` (arrays) bezitten, anders faalt de Zod-validatie van de SDK.
+  - Frontend: De `useChat` hook stopt de payload van de assistant niet in `content`, maar in de sub-array `parts` (`m.parts.map(p => p.text)`).

@@ -23,7 +23,7 @@ export async function POST(req: Request) {
     const modelName = process.env.AI_MODEL || 'gpt-4o'
 
     // Vercel AI v6 (and strictly typed Providers) requires purely { role, content }
-    // En we filteren eventuele lege assistant-responses eruit om API crashes te voorkomen.
+    // We filter out any empty assistant responses to prevent API crashes.
     const uiMessages = messages
       .map((m: any) => ({
         id: m.id || crypto.randomUUID(),
