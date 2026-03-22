@@ -21,9 +21,18 @@ export async function POST(req: Request) {
 
     const modelName = process.env.AI_MODEL || 'gpt-4o'
 
+    // Vercel AI v6 (and strictly typed Providers) requires purely { role, content }
+    // En we filteren eventuele lege assistant-responses eruit om API crashes te voorkomen.
+    const coreMessages = messages
+      .filter((m: any) => m.content && m.content.trim().length > 0)
+      .map((m: any) => ({
+        role: m.role,
+        content: m.content,
+      }));
+
     const result = await streamText({
       model: openai(modelName),
-      messages,
+      messages: coreMessages,
     })
 
     // @ts-ignore - Dit is de specifieke nieuwe methode in de geïnstalleerde ai@6 versie!
