@@ -1,5 +1,5 @@
 import { createOpenAI } from '@ai-sdk/openai'
-import { streamText } from 'ai'
+import { createAgentUIStreamResponse, ToolLoopAgent } from 'ai'
 
 export const maxDuration = 30
 
@@ -31,14 +31,16 @@ export async function POST(req: Request) {
         content: m.content,
       }));
 
-    const result = await streamText({
+    const chatAgent = new ToolLoopAgent({
       model: openai(modelName),
-      messages: coreMessages,
     })
 
-    console.log("[Chat API POST] Stream started for coreMessages length:", coreMessages.length);
+    console.log("[Chat API POST] Agent Stream started for coreMessages length:", coreMessages.length);
 
-    return result.toTextStreamResponse();
+    return createAgentUIStreamResponse({
+      agent: chatAgent,
+      uiMessages: coreMessages,
+    });
   } catch (err: any) {
     console.error("[Chat API Error]:", err);
     return new Response(err.message || "Unknown server error during AI response.", { status: 500 })

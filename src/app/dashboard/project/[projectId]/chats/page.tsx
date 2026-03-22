@@ -87,7 +87,12 @@ export default function ChatsPage() {
                     ? 'bg-emerald-600/20 border border-emerald-500/30 text-emerald-50' 
                     : 'bg-zinc-800/50 border border-zinc-700/50 text-zinc-100'
                 }`}>
-                  <div className="whitespace-pre-wrap text-sm leading-relaxed">{m.content}</div>
+                  <div className="whitespace-pre-wrap text-sm leading-relaxed">
+                    {m.role === 'user' ? m.content : m.parts?.map((part: any, i: number) => {
+                      if (part.type === 'text') return <span key={i}>{part.text}</span>;
+                      return null;
+                    })}
+                  </div>
                 </div>
 
                 {m.role === 'user' && (
