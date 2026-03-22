@@ -115,3 +115,45 @@ export async function getProject(octokit: Octokit, owner: string, id: string) {
     throw error
   }
 }
+
+export async function getFileContent(octokit: Octokit, owner: string, path: string) {
+  try {
+    const { data } = await octokit.rest.repos.getContent({
+      owner,
+      repo: REPO_NAME,
+      path,
+    })
+    if (!Array.isArray(data) && "content" in data) {
+      return Buffer.from(data.content as string, "base64").toString("utf-8")
+    }
+    return null
+  } catch (error: any) {
+    if (error.status === 404) return null
+    throw error
+  }
+}
+
+export async function createOrUpdateFile(octokit: Octokit, owner: string, path: string, content: string, message: string) {
+  let sha: string | undefined
+  try {
+    const { data } = await octokit.rest.repos.getContent({
+      owner,
+      repo: REPO_NAME,
+      path,
+    })
+    if (!Array.isArray(data) && "sha" in data) sha = data.sha
+  } catch (error: any) {
+    if (error.status !== 404) throw error
+  }
+
+  await octokit.rest.repos.createOrUpdateFileContents({
+    owner,
+    repo: REPO_NAME,
+    path,
+    message,
+    content: Buffer.from(content).toString("base64"),
+    branch: "main",
+    sha,
+  })
+}
+
