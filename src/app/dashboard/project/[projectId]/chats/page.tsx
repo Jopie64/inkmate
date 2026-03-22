@@ -6,7 +6,9 @@ import { useState } from "react"
 
 export default function ChatsPage() {
   // @ts-ignore - Bypass version-specific type mismatches in Vercel AI SDK
-  const { messages, sendMessage, status, error } = useChat() as any
+  const { messages, sendMessage, status, error } = useChat({
+    streamProtocol: "text"
+  }) as any
   const isLoading = status === 'streaming' || status === 'submitted'
   const [input, setInput] = useState("")
 

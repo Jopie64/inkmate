@@ -35,8 +35,8 @@ export async function POST(req: Request) {
       messages: coreMessages,
     })
 
-    // @ts-ignore - Dit is de specifieke nieuwe methode in de geïnstalleerde ai@6 versie!
-    return result.toUIMessageStreamResponse()
+    // @ts-ignore - We gebruiken het pure tekst protocol om format-conflicten te vermijden
+    return result.toTextStreamResponse()
   } catch (err: any) {
     return new Response(err.message || "Unknown server error during AI response.", { status: 500 })
   }
