@@ -7,7 +7,10 @@ import { useState } from "react"
 export default function ChatsPage() {
   // @ts-ignore - Bypass version-specific type mismatches in Vercel AI SDK
   const { messages, sendMessage, status, error } = useChat({
-    onError: (err) => {
+    onFinish: (options: any) => {
+      console.log("[useChat onFinish]: Message complete", options);
+    },
+    onError: (err: any) => {
       console.error("[useChat Error]:", err);
     }
   }) as any

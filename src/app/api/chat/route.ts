@@ -6,7 +6,8 @@ export const maxDuration = 30
 export async function POST(req: Request) {
   try {
     const { messages } = await req.json()
-    
+    console.log("[Chat API POST] Received messages request. Length:", messages?.length);
+
     const baseURL = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1"
     const apiKey = process.env.OPENAI_API_KEY
 
@@ -35,24 +36,13 @@ export async function POST(req: Request) {
       messages: coreMessages,
     })
 
-    // Bulletproof manual DataStream implementation to bypass alpha SDK missing methods
-    const encoder = new TextEncoder()
-    const stream = new ReadableStream({
-      async start(controller) {
-        for await (const chunk of result.textStream) {
-          controller.enqueue(encoder.encode(`0:${JSON.stringify(chunk)}\n`))
-        }
-        controller.enqueue(encoder.encode(`d:{"finishReason":"stop"}\n`))
-        controller.close()
-      }
-    })
+    console.log("[Chat API POST] Stream started for coreMessages length:", coreMessages.length);
 
-    return new Response(stream, {
+    return result.toTextStreamResponse({
       headers: {
-        'Content-Type': 'text/plain; charset=utf-8',
-        'X-Vercel-AI-Data-Stream': 'v1'
+        'X-Vercel-AI-Data-Stream': 'v1' // Still passed just in case the client requires it
       }
-    })
+    });
   } catch (err: any) {
     console.error("[Chat API Error]:", err);
     return new Response(err.message || "Unknown server error during AI response.", { status: 500 })
