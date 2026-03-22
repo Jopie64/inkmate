@@ -35,8 +35,24 @@ export async function POST(req: Request) {
       messages: coreMessages,
     })
 
-    // @ts-ignore - We gebruiken het pure tekst protocol om format-conflicten te vermijden
-    return result.toTextStreamResponse()
+    // Bulletproof manual DataStream implementation to bypass alpha SDK missing methods
+    const encoder = new TextEncoder()
+    const stream = new ReadableStream({
+      async start(controller) {
+        for await (const chunk of result.textStream) {
+          controller.enqueue(encoder.encode(`0:${JSON.stringify(chunk)}\n`))
+        }
+        controller.enqueue(encoder.encode(`d:{"finishReason":"stop"}\n`))
+        controller.close()
+      }
+    })
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'X-Vercel-AI-Data-Stream': 'v1'
+      }
+    })
   } catch (err: any) {
     return new Response(err.message || "Unknown server error during AI response.", { status: 500 })
   }
