@@ -4,21 +4,30 @@ import { streamText } from 'ai'
 export const maxDuration = 30
 
 export async function POST(req: Request) {
-  const { messages } = await req.json()
-  
-  // Custom OpenAI compatible endpoint (Supports Groq, OpenRouter, OpenAI)
-  const openai = createOpenAI({
-    baseURL: process.env.OPENAI_BASE_URL || "https://api.openai.com/v1",
-    apiKey: process.env.OPENAI_API_KEY,
-  })
+  try {
+    const { messages } = await req.json()
+    
+    const baseURL = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1"
+    const apiKey = process.env.OPENAI_API_KEY
 
-  // Allows model overriding via .env, defauls to a robust model.
-  const modelName = process.env.AI_MODEL || 'gpt-4o'
+    if (!apiKey || apiKey.includes("your-api-key") || apiKey === "jouw-api-key-hier") {
+      return new Response("Missing API Key. Vul een echte key in `.env.local` in.", { status: 401 })
+    }
+    
+    const openai = createOpenAI({
+      baseURL,
+      apiKey,
+    })
 
-  const result = streamText({
-    model: openai(modelName),
-    messages,
-  })
+    const modelName = process.env.AI_MODEL || 'gpt-4o'
 
-  return result.toTextStreamResponse()
+    const result = streamText({
+      model: openai(modelName),
+      messages,
+    })
+
+    return result.toTextStreamResponse()
+  } catch (err: any) {
+    return new Response(err.message || "Unknown server error during AI response.", { status: 500 })
+  }
 }

@@ -6,7 +6,7 @@ import { useState } from "react"
 
 export default function ChatsPage() {
   // @ts-ignore - Bypass version-specific type mismatches in Vercel AI SDK
-  const { messages, sendMessage, status } = useChat() as any
+  const { messages, sendMessage, status, error } = useChat() as any
   const isLoading = status === 'streaming' || status === 'submitted'
   const [input, setInput] = useState("")
 
@@ -95,7 +95,12 @@ export default function ChatsPage() {
 
         {/* Input Area */}
         <div className="p-4 bg-zinc-950 border-t border-zinc-800">
-          <div className="max-w-3xl mx-auto relative">
+          <div className="max-w-3xl mx-auto relative flex flex-col gap-2">
+            {error && (
+              <div className="p-3 bg-red-900/30 border border-red-800 rounded-lg text-red-200 text-sm">
+                <span className="font-bold">API Error:</span> {error.message || "Failed to fetch response. Check your API key or connection."}
+              </div>
+            )}
             <form onSubmit={handleSubmit} className="relative flex items-end w-full">
               <textarea
                 value={input}
