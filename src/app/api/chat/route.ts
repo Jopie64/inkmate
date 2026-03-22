@@ -24,22 +24,22 @@ export async function POST(req: Request) {
 
     // Vercel AI v6 (and strictly typed Providers) requires purely { role, content }
     // En we filteren eventuele lege assistant-responses eruit om API crashes te voorkomen.
-    const coreMessages = messages
-      .filter((m: any) => m.content && m.content.trim().length > 0)
+    const uiMessages = messages
       .map((m: any) => ({
+        id: m.id || crypto.randomUUID(),
         role: m.role,
-        content: m.content,
+        parts: m.parts || (m.content ? [{ type: 'text', text: m.content }] : []),
       }));
 
     const chatAgent = new ToolLoopAgent({
       model: openai(modelName),
     })
 
-    console.log("[Chat API POST] Agent Stream started for coreMessages length:", coreMessages.length);
+    console.log("[Chat API POST] Agent Stream started for uiMessages length:", uiMessages.length);
 
     return createAgentUIStreamResponse({
       agent: chatAgent,
-      uiMessages: coreMessages,
+      uiMessages: uiMessages,
     });
   } catch (err: any) {
     console.error("[Chat API Error]:", err);
