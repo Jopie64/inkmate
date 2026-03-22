@@ -6,14 +6,18 @@ import { useState } from "react"
 
 export default function ChatsPage() {
   // @ts-ignore - Bypass version-specific type mismatches in Vercel AI SDK
-  const { messages, sendMessage, status, error } = useChat() as any
+  const { messages, append, status, error } = useChat({
+    onError: (err) => {
+      console.error("[useChat Error]:", err);
+    }
+  }) as any
   const isLoading = status === 'streaming' || status === 'submitted'
   const [input, setInput] = useState("")
 
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault()
     if (!input.trim()) return
-    sendMessage({ role: 'user', content: input })
+    append({ role: 'user', content: input })
     setInput("")
   }
 

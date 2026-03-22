@@ -54,6 +54,7 @@ export async function POST(req: Request) {
       }
     })
   } catch (err: any) {
+    console.error("[Chat API Error]:", err);
     return new Response(err.message || "Unknown server error during AI response.", { status: 500 })
   }
 }
