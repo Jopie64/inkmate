@@ -26,7 +26,8 @@ export async function POST(req: Request) {
       messages,
     })
 
-    return result.toTextStreamResponse()
+    // @ts-ignore - TypeScript might cache an old AI SDK version definition, but this is the correct V6 method.
+    return result.toDataStreamResponse()
   } catch (err: any) {
     return new Response(err.message || "Unknown server error during AI response.", { status: 500 })
   }
