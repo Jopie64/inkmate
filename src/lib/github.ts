@@ -96,3 +96,22 @@ export async function createProject(octokit: Octokit, owner: string, title: stri
   
   return uuid
 }
+
+export async function getProject(octokit: Octokit, owner: string, id: string) {
+  try {
+    const { data } = await octokit.rest.repos.getContent({
+      owner,
+      repo: REPO_NAME,
+      path: `${id}/index.json`,
+    })
+    
+    if ("content" in data) {
+      const content = Buffer.from(data.content as string, "base64").toString("utf-8")
+      return JSON.parse(content)
+    }
+    return null
+  } catch (error: any) {
+    if (error.status === 404) return null
+    throw error
+  }
+}
