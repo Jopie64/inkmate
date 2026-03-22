@@ -1,6 +1,6 @@
 import { createOpenAI } from '@ai-sdk/openai'
 import { createAgentUIStreamResponse, ToolLoopAgent } from 'ai'
-import { listChaptersTool, readChapterTool, saveChapterTool } from '@/lib/agents/tools'
+import { createProjectTools } from '@/lib/agents/tools'
 import { auth } from '@/auth'
 import { getOctokit, getFileContent } from '@/lib/github'
 
@@ -56,11 +56,7 @@ export async function POST(req: Request) {
     const chatAgent = new ToolLoopAgent({
       model: openai(modelName),
       instructions: dynamicSystemPrompt,
-      tools: {
-        listChapters: listChaptersTool,
-        readChapter: readChapterTool,
-        saveChapter: saveChapterTool
-      }
+      tools: createProjectTools(projectId)
     })
 
     console.log("[Chat API POST] Agent Stream started for uiMessages length:", uiMessages.length);
