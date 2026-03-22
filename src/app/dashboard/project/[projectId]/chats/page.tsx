@@ -6,7 +6,16 @@ import { useState } from "react"
 
 export default function ChatsPage() {
   // @ts-ignore - Bypass version-specific type mismatches in Vercel AI SDK
-  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat() as any
+  const { messages, sendMessage, status } = useChat() as any
+  const isLoading = status === 'streaming' || status === 'submitted'
+  const [input, setInput] = useState("")
+
+  const handleSubmit = (e?: React.FormEvent) => {
+    e?.preventDefault()
+    if (!input.trim()) return
+    sendMessage({ role: 'user', content: input })
+    setInput("")
+  }
 
   const [contextConfig, setContextConfig] = useState({
     description: true,
@@ -90,14 +99,14 @@ export default function ChatsPage() {
             <form onSubmit={handleSubmit} className="relative flex items-end w-full">
               <textarea
                 value={input}
-                onChange={handleInputChange}
+                onChange={(e) => setInput(e.target.value)}
                 placeholder="Ask your AI co-writer..."
                 className="w-full bg-zinc-900 border border-zinc-800 rounded-xl pl-4 pr-12 py-4 text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 resize-none min-h-[56px] max-h-48 scrollbar-hide"
                 rows={1}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
-                    if (input.trim()) {
+                    if ((input || "").trim()) {
                       const form = e.currentTarget.closest('form');
                       form?.requestSubmit();
                     }
@@ -106,7 +115,7 @@ export default function ChatsPage() {
               />
               <button 
                 type="submit" 
-                disabled={isLoading || !input.trim()}
+                disabled={isLoading || !(input || "").trim()}
                 className="absolute right-3 bottom-3 p-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-800 disabled:text-zinc-600 text-white rounded-lg transition-colors cursor-pointer"
               >
                 <Send className="w-4 h-4" />
