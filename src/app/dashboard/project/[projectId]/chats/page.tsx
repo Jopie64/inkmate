@@ -6,7 +6,7 @@ import { useState } from "react"
 
 export default function ChatsPage() {
   // @ts-ignore - Bypass version-specific type mismatches in Vercel AI SDK
-  const { messages, append, status, error } = useChat({
+  const { messages, sendMessage, status, error } = useChat({
     onError: (err) => {
       console.error("[useChat Error]:", err);
     }
@@ -17,7 +17,7 @@ export default function ChatsPage() {
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault()
     if (!input.trim()) return
-    append({ role: 'user', content: input })
+    sendMessage({ role: 'user', content: input })
     setInput("")
   }
 
@@ -71,7 +71,7 @@ export default function ChatsPage() {
               </p>
             </div>
           ) : (
-            messages.map(m => (
+            messages.map((m: any) => (
               <div key={m.id} className={`flex gap-4 max-w-3xl mx-auto ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 {m.role !== 'user' && (
                   <div className="w-8 h-8 rounded-full bg-emerald-900/50 border border-emerald-800 flex items-center justify-center mt-1 flex-shrink-0">
