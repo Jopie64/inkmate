@@ -27,12 +27,13 @@ De bedoeling is dat hij gehost gaat worden op **Vercel**.
   * Wat in de chatbox geschreven wordt blijft bewaard, ook al is het nog niet verstuurd.
   * **Sessie Forking**: Een sessie kan op een willekeurige plek in de history worden geforkt. Er ontstaan dan 2 sessies (het origineel en de fork). Bij het forken wordt de huidige ingevoerde, onverzonden tekst in de inputbox meegekopieerd.
 * **Context Engine (Selectie & Tooling)**:
-  * De context van een chatsessie is selecteerbaar. Je kunt dit openklappen met vinkjes per onderdeel.
+  * De context van een chatsessie is selecteerbaar. Je kunt de context selection box openklappen en met vinkjes per onderdeel de context selecteren.
   * Bij een nieuwe sessie staat standaard aan:
     - Description
     - Alle chapter summaries
     - Laatste 2 chapters (volledig)
     - Chat history
+    - Personages
   * **Dynamic Context Loading**: Als de context-vink in algemene zin aan staat, kan de AI tijdens inference zelf beslissen om specifieke chapters, notes, comments of characters in te laden via tool-calling wanneer er meer detail nodig is.
 * **Export & Leesbaarheid**:
   * Optie om het volledige boek te downloaden als PDF.
