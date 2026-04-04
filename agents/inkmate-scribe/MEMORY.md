@@ -33,7 +33,7 @@ Alle codebase en inline-documentatie dient in het Engels te zijn, de applicatie 
 - **Chapters & Editor:** Een markdown editor component in de Chapters-tab is gebouwd, inc. server actions die daadwerkelijk `full.md` bestanden en de structuur in `index.json` opslaan naar de GitHub repo van de gebruiker.
 
 ### On Environment & Tools
-- **PowerShell op Windows**: Pas op met command-line chaining. Gebruik `;` in plaats van `&&` voor het bundelen van terminal commands (zoals `git add . ; git commit -m "..."`), aangezien het oude `&&` niet standaard door PowerShell wordt ondersteund.
+- **PowerShell op Windows**: Pas op met command-line chaining. Gebruik `;` in plaats van `&&` voor het bundelen van terminal commands. Gebruik ook geen `mkdir -p` (werkt niet recursief/als alias); gebruik in plaats daarvan `New-Item -ItemType Directory -Path "..." -Force` voor het aanmaken van mappenstructuren.
 
 ### On SDKs and Integrations
 - **Vercel AI SDK 6.0+:** De architectuur is overgestapt van pure data-streams naar strakke `UIMessageStream` protocollen. 
