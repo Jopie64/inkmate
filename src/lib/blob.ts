@@ -70,6 +70,23 @@ export async function listDirtyFiles(
   return blobs.map(b => b.pathname.replace(prefix, ''))
 }
 
+export async function listAllDirtyFiles(userId: string) {
+  const prefix = `${userId}/projects/`
+  const { blobs } = await list({ prefix })
+  // Path format: userId/projects/projectId/branches/branchName/dirty/path
+  return blobs
+    .filter(b => b.pathname.includes('/dirty/'))
+    .map(b => {
+      const parts = b.pathname.split('/')
+      const dirtyIndex = parts.indexOf('dirty')
+      return {
+        projectId: parts[2],
+        branchName: parts[4],
+        path: parts.slice(dirtyIndex + 1).join('/')
+      }
+    })
+}
+
 export async function clearDirtyMarkers(
   userId: string,
   projectId: string,

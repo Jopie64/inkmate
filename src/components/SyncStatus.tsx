@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { Cloud, CloudOff, RefreshCw, CheckCircle2, AlertCircle, Send, Loader2 } from "lucide-react"
-import { getSyncStatusAction, syncProjectToGitHubAction, checkAndSyncProjectAction } from "@/app/actions/sync"
+import { getGlobalSyncStatusAction, syncGlobalAction, checkAndSyncGlobalAction } from "@/app/actions/sync"
 import { motion, AnimatePresence } from "framer-motion"
 import { useRouter } from "next/navigation"
 
-export function SyncStatus({ projectId }: { projectId: string }) {
+export function SyncStatus() {
   const router = useRouter()
-  const [status, setStatus] = useState<{ isDirty: boolean; count: number }>({ isDirty: false, count: 0 })
+  const [status, setStatus] = useState<{ isDirty: boolean; count: number; projects: string[] }>({ isDirty: false, count: 0, projects: [] })
   const [isSyncing, setIsSyncing] = useState(false)
   const [isChecking, setIsChecking] = useState(false)
   const [syncError, setSyncError] = useState<string | null>(null)
@@ -18,8 +18,8 @@ export function SyncStatus({ projectId }: { projectId: string }) {
 
   const checkStatus = async () => {
     try {
-      const s = await getSyncStatusAction(projectId)
-      setStatus({ isDirty: s.isDirty, count: s.count })
+      const res = await getGlobalSyncStatusAction()
+      setStatus(res)
     } catch (e) {
       console.error("Failed to fetch sync status", e)
     }
@@ -29,8 +29,8 @@ export function SyncStatus({ projectId }: { projectId: string }) {
     setIsChecking(true)
     setSyncError(null)
     try {
-      const check = await checkAndSyncProjectAction(projectId)
-      if (check.status === 'synced-from-github' || check.status === 'initial-seed') {
+      const check = await checkAndSyncGlobalAction()
+      if (check.status === 'synced') {
         router.refresh()
       } else if (check.status === 'github-error') {
         setSyncError(check.error || "GitHub error")
@@ -41,31 +41,28 @@ export function SyncStatus({ projectId }: { projectId: string }) {
     } finally {
       setIsChecking(false)
     }
-  }, [projectId, router])
+  }, [router])
 
   useEffect(() => {
     initSync()
-    const interval = setInterval(checkStatus, 20000) // Poll every 20s
-    return () => clearInterval(interval)
   }, [initSync])
 
   const handleSync = async () => {
     setIsSyncing(true)
     setResult(null)
     try {
-      const msg = commitMessage.trim() || `docs: update project ${projectId} (synced from Inkmate)`
-      const res: any = await syncProjectToGitHubAction(projectId, msg)
+      const msg = commitMessage.trim() || `docs: sync changes for [${status.projects.join(", ")}]`
+      const res: any = await syncGlobalAction(msg)
       
       if (res && res.success) {
-        setResult({ success: true, isConflict: res.isConflict, branch: res.branch })
-        setStatus({ isDirty: false, count: 0 })
+        setResult({ success: true })
+        setStatus({ isDirty: false, count: 0, projects: [] })
         
-        // Stay open a bit longer if there was a conflict to show the message
         setTimeout(() => {
           setShowModal(false)
           setResult(null)
           setCommitMessage("")
-        }, res.isConflict ? 5000 : 2000)
+        }, 2000)
       } else {
         setResult({ success: false, message: res?.message || "Sync failed" })
       }
@@ -92,7 +89,7 @@ export function SyncStatus({ projectId }: { projectId: string }) {
             ? "bg-amber-500/10 text-amber-500 border border-amber-500/50 hover:bg-amber-500/20" 
             : "bg-emerald-500/10 text-emerald-500 border border-emerald-500/50 hover:bg-emerald-500/20"
         }`}
-        title={syncError ? `Sync Error: ${syncError}. Click to retry.` : status.isDirty ? `${status.count} files modified locally` : 'All changes synced to GitHub'}
+        title={syncError ? `Sync Error: ${syncError}. Click to retry.` : status.isDirty ? `${status.count} changes across ${status.projects.length} projects` : 'All changes synced to GitHub'}
       >
         {isChecking ? (
           <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -127,10 +124,8 @@ export function SyncStatus({ projectId }: { projectId: string }) {
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
               className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 w-full max-w-md shadow-2xl relative overflow-hidden"
             >
-              <h3 className="text-xl font-bold text-white mb-2">Push to GitHub</h3>
-              <p className="text-zinc-400 text-sm mb-6">
-                Save your progress permanently to your version history.
-              </p>
+              <h2 className="text-xl font-bold text-white mb-2">Sync All Projects</h2>
+              <p className="text-sm text-zinc-400 mb-6">Pushing changes for: {status.projects.join(", ")}</p>
               
               <div className="space-y-4">
                 <div className="space-y-2">
@@ -138,7 +133,7 @@ export function SyncStatus({ projectId }: { projectId: string }) {
                   <textarea 
                     value={commitMessage}
                     onChange={(e) => setCommitMessage(e.target.value)}
-                    placeholder="Describe what you've changed..."
+                    placeholder={`docs: sync changes for [${status.projects.join(", ")}]`}
                     disabled={isSyncing || !!result}
                     className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 min-h-[100px] resize-none transition-all"
                   />

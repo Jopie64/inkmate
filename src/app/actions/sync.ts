@@ -2,7 +2,8 @@
 import { auth } from "@/auth"
 import { getOctokit, REPO_NAME, commitMultipleFiles, getFileContent } from "@/lib/github"
 import { 
-  listDirtyFiles, 
+  listDirtyFiles,
+  listAllDirtyFiles, 
   getFromWorkingDir, 
   getSyncMeta, 
   saveSyncMeta, 
@@ -10,145 +11,126 @@ import {
   saveToWorkingDir,
   deleteFromWorkingDir 
 } from "@/lib/blob"
+import { getProjectsAction } from "@/app/actions/projects"
 import { Octokit } from "octokit"
 import { revalidatePath } from "next/cache"
 
-export async function getSyncStatusAction(projectId: string, branchName: string = "main") {
+export async function getGlobalSyncStatusAction() {
   const session = await auth()
-  if (!session?.user?.name) return { isDirty: false, count: 0 }
+  if (!session?.user?.name) return { isDirty: false, count: 0, projects: [] }
   
   const userId = session.user.name
-  const dirtyFiles = await listDirtyFiles(userId, projectId, branchName)
+  const dirtyFiles = await listAllDirtyFiles(userId)
+  const projectIds = Array.from(new Set(dirtyFiles.map(f => f.projectId)))
   
   return {
     isDirty: dirtyFiles.length > 0,
     count: dirtyFiles.length,
-    files: dirtyFiles
+    projects: projectIds
   }
 }
 
-export async function syncProjectToGitHubAction(projectId: string, commitMessage: string, branchName: string = "main") {
+export async function syncGlobalAction(commitMessage?: string) {
   const session = await auth()
   if (!session?.user?.name || !session?.accessToken) throw new Error("Unauthorized")
   
   const userId = session.user.name
   const octokit = await getOctokit(session.accessToken as string)
   
-  // 1. Get dirty files
-  const dirtyPaths = await listDirtyFiles(userId, projectId, branchName)
-  if (dirtyPaths.length === 0) return { success: true, message: "Nothing to sync" }
+  // 1. Get ALL dirty files across all projects
+  const allDirty = await listAllDirtyFiles(userId)
+  if (allDirty.length === 0) return { success: true, message: "Nothing to sync" }
   
-  // 2. Fetch contents from Blob Working Dir
-  const filesToCommit = await Promise.all(dirtyPaths.map(async p => {
-    const content = await getFromWorkingDir(userId, projectId, branchName, p)
-    return { path: `${projectId}/${p}`, content: content || "" }
+  // 2. Fetch contents and prepare commit
+  const filesToCommit = await Promise.all(allDirty.map(async f => {
+    const content = await getFromWorkingDir(userId, f.projectId, f.branchName, f.path)
+    return { path: `${f.projectId}/${f.path}`, content: content || "" }
   }))
   
-  // 3. Conflict Detection
-  let targetBranch = branchName
-  const meta = await getSyncMeta(userId, projectId, branchName)
+  const projectIds = Array.from(new Set(allDirty.map(f => f.projectId)))
+  const defaultMsg = `docs: sync changes for [${projectIds.join(", ")}]`
+  const finalMsg = commitMessage || defaultMsg
   
-  try {
-    const { data: refData } = await octokit.rest.git.getRef({
-      owner: userId,
-      repo: REPO_NAME,
-      ref: `heads/${branchName}`
-    })
-    const remoteSha = refData.object.sha
-    
-    if (meta && meta.lastSyncedSha !== remoteSha) {
-      // Conflict detected!
-      targetBranch = `${branchName}-conflict-${Date.now()}`
-      
-      // Create the conflict branch starting from the last known synced commit
-      await octokit.rest.git.createRef({
-        owner: userId,
-        repo: REPO_NAME,
-        ref: `refs/heads/${targetBranch}`,
-        sha: meta.lastSyncedSha
-      })
-    }
-  } catch (e: any) {
-    if (e.status !== 404) throw e
-    // If branch doesn't exist, we'll just let commitMultipleFiles fail or handle it
-  }
-  
-  // 4. Batch Commit to GitHub
+  // 3. Batch Commit to main branch (Global)
+  // Note: For simplicity, we assume we always target 'main' for global sync
+  const branchName = "main"
   const newSha = await commitMultipleFiles(
     octokit,
     userId,
     REPO_NAME,
-    targetBranch,
+    branchName,
     filesToCommit,
-    commitMessage || `docs: sync changes for project ${projectId}`
+    finalMsg
   )
   
-  // 5. Post-sync maintenance
-  await saveSyncMeta(userId, projectId, branchName, {
-    lastSyncedSha: newSha,
-    lastSyncedAt: new Date().toISOString(),
-    baseBranch: branchName
-  })
+  // 4. Update Meta for all involved projects
+  for (const pid of projectIds) {
+    await saveSyncMeta(userId, pid, branchName, {
+        lastSyncedSha: newSha,
+        lastSyncedAt: new Date().toISOString(),
+        baseBranch: branchName
+    })
+    await clearDirtyMarkers(userId, pid, branchName)
+  }
   
-  await clearDirtyMarkers(userId, projectId, branchName)
-  
+  revalidatePath(`/dashboard`)
   return { 
     success: true, 
-    branch: targetBranch, 
-    isConflict: targetBranch !== branchName 
+    message: `Synced ${allDirty.length} files across ${projectIds.length} projects.`
   }
 }
 
-export async function checkAndSyncProjectAction(projectId: string, branchName: string = "main") {
+export async function checkAndSyncGlobalAction() {
   const session = await auth()
   if (!session?.user?.name || !session?.accessToken) return { status: 'unauthorized' }
   const userId = session.user.name
   
   try {
-    // 1. Get local state
-    const meta = await getSyncMeta(userId, projectId, branchName)
-    const dirtyFiles = await listDirtyFiles(userId, projectId, branchName)
-    
-    // 2. Get remote state
+    // 1. Get all projects from manifest
+    const projects = await getProjectsAction()
     const octokit = await getOctokit(session.accessToken)
+    
+    // 2. Get remote head SHA
     let remoteSha = ""
     try {
       const { data: refData } = await octokit.rest.git.getRef({
         owner: userId,
         repo: REPO_NAME,
-        ref: `heads/${branchName}`
+        ref: `heads/main`
       })
       remoteSha = refData.object.sha
     } catch (e: any) {
       if (e.status === 404) return { status: 'not-on-github' }
       throw e
     }
-    
-    // 3. Sync if remote is ahead and NOT dirty
-    if (meta && meta.lastSyncedSha !== remoteSha && dirtyFiles.length === 0) {
-      console.log(`Syncing project ${projectId} from GitHub (remote moved from ${meta.lastSyncedSha} to ${remoteSha})`)
-      
-      // Fetch project index and chapters from GitHub and update Blob
-      await seedProjectFromGitHub(octokit, userId, projectId, branchName, remoteSha)
-      
-      return { status: 'synced-from-github', newSha: remoteSha }
+
+    let syncedCount = 0
+    let dirtyGlobal = false
+
+    // 3. Check each project
+    for (const project of projects) {
+      const meta = await getSyncMeta(userId, project.id, 'main')
+      const dirtyFiles = await listDirtyFiles(userId, project.id, 'main')
+      if (dirtyFiles.length > 0) dirtyGlobal = true
+
+      if (meta && meta.lastSyncedSha !== remoteSha && dirtyFiles.length === 0) {
+        await seedProjectFromGitHub(octokit, userId, project.id, 'main', remoteSha)
+        syncedCount++
+      } else if (!meta && dirtyFiles.length === 0) {
+        await seedProjectFromGitHub(octokit, userId, project.id, 'main', remoteSha)
+        syncedCount++
+      }
     }
-    
-    if (!meta && dirtyFiles.length === 0) {
-       // Initial seed
-       await seedProjectFromGitHub(octokit, userId, projectId, branchName, remoteSha)
-       return { status: 'initial-seed', newSha: remoteSha }
-    }
-    
+
     return { 
-      status: 'up-to-date', 
-      isDirty: dirtyFiles.length > 0, 
-      remoteAhead: meta ? meta.lastSyncedSha !== remoteSha : false 
+      status: syncedCount > 0 ? 'synced' : 'up-to-date', 
+      syncedProjects: syncedCount,
+      isDirty: dirtyGlobal,
+      remoteSha
     }
   } catch (e: any) {
-    const msg = e.message || "GitHub communication failed"
-    console.error(`Status check failed for ${projectId}:`, msg)
-    return { status: 'github-error', error: msg }
+    console.error("Global sync check failed", e)
+    return { status: 'github-error', error: e.message }
   }
 }
 

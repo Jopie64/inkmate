@@ -1,6 +1,7 @@
 import { signOut } from "@/auth"
 import { BookOpen, LogOut } from "lucide-react"
 import Link from "next/link"
+import { SyncStatus } from "./SyncStatus"
 
 export default function Navigation({ user }: { user: any }) {
   return (
@@ -10,7 +11,9 @@ export default function Navigation({ user }: { user: any }) {
         Inkmate
       </Link>
       
-      <div className="flex items-center gap-6">
+      <div className="flex items-center gap-8">
+        <SyncStatus />
+        
         <div className="flex items-center gap-3">
           {user?.image ? (
              <img src={user.image} alt="Avatar" className="w-8 h-8 rounded-full border border-zinc-800" />

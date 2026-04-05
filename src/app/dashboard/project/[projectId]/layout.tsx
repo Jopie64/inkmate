@@ -3,7 +3,6 @@ import { redirect } from "next/navigation"
 import { getProjectAction } from "@/app/actions/projects"
 import Link from "next/link"
 import { FileText, BookOpen, Users, StickyNote, History, MessageSquare, ChevronLeft } from "lucide-react"
-import { SyncStatus } from "@/components/SyncStatus"
 
 export default async function ProjectLayout({
   children,
@@ -51,8 +50,6 @@ export default async function ProjectLayout({
               <p className="text-sm text-zinc-400">Workspace</p>
             </div>
           </div>
-          
-          <SyncStatus projectId={projectId} />
         </div>
         
         {/* Navigation Tabs */}
