@@ -8,7 +8,11 @@ import { useRouter } from "next/navigation"
 
 export function SyncStatus() {
   const router = useRouter()
-  const [status, setStatus] = useState<{ isDirty: boolean; count: number; projects: string[] }>({ isDirty: false, count: 0, projects: [] })
+  const [status, setStatus] = useState<{ isDirty: boolean; count: number; projects: {id: string, name: string}[] }>({ 
+    isDirty: false, 
+    count: 0, 
+    projects: [] 
+  })
   const [isSyncing, setIsSyncing] = useState(false)
   const [isChecking, setIsChecking] = useState(false)
   const [syncError, setSyncError] = useState<string | null>(null)
@@ -45,13 +49,25 @@ export function SyncStatus() {
 
   useEffect(() => {
     initSync()
+    // No interval polling as per user request
   }, [initSync])
+
+  // Pre-fill commit message when dirty projects change or modal opens
+  useEffect(() => {
+    if (status.isDirty && status.projects.length > 0) {
+      const names = status.projects.map(p => p.name)
+      setCommitMessage(`docs: sync changes for [${names.join(", ")}]`)
+    } else {
+      setCommitMessage("")
+    }
+  }, [status.isDirty, status.projects])
 
   const handleSync = async () => {
     setIsSyncing(true)
     setResult(null)
     try {
-      const msg = commitMessage.trim() || `docs: sync changes for [${status.projects.join(", ")}]`
+      const projectNames = status.projects.map(p => p.name)
+      const msg = commitMessage.trim() || `docs: sync changes for [${projectNames.join(", ")}]`
       const res: any = await syncGlobalAction(msg)
       
       if (res && res.success) {
@@ -124,8 +140,10 @@ export function SyncStatus() {
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
               className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 w-full max-w-md shadow-2xl relative overflow-hidden"
             >
-              <h2 className="text-xl font-bold text-white mb-2">Sync All Projects</h2>
-              <p className="text-sm text-zinc-400 mb-6">Pushing changes for: {status.projects.join(", ")}</p>
+              <h2 className="text-xl font-bold text-white mb-1">Sync All Projects</h2>
+              <p className="text-sm text-zinc-400 mb-6">
+                Pushing changes for: {status.projects.map(p => p.name).join(", ")}
+              </p>
               
               <div className="space-y-4">
                 <div className="space-y-2">
@@ -133,7 +151,7 @@ export function SyncStatus() {
                   <textarea 
                     value={commitMessage}
                     onChange={(e) => setCommitMessage(e.target.value)}
-                    placeholder={`docs: sync changes for [${status.projects.join(", ")}]`}
+                    placeholder={`docs: sync changes for [${status.projects.map(p => p.name).join(", ")}]`}
                     disabled={isSyncing || !!result}
                     className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-sm text-zinc-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 min-h-[100px] resize-none transition-all"
                   />

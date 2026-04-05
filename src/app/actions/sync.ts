@@ -23,10 +23,17 @@ export async function getGlobalSyncStatusAction() {
   const dirtyFiles = await listAllDirtyFiles(userId)
   const projectIds = Array.from(new Set(dirtyFiles.map(f => f.projectId)))
   
+  // Map IDs to Titles
+  const projects = await getProjectsAction()
+  const dirtyProjects = projectIds.map(id => {
+    const p = projects.find((p: any) => p.id === id)
+    return { id, name: p?.title || id }
+  })
+  
   return {
     isDirty: dirtyFiles.length > 0,
     count: dirtyFiles.length,
-    projects: projectIds
+    projects: dirtyProjects
   }
 }
 
@@ -48,7 +55,15 @@ export async function syncGlobalAction(commitMessage?: string) {
   }))
   
   const projectIds = Array.from(new Set(allDirty.map(f => f.projectId)))
-  const defaultMsg = `docs: sync changes for [${projectIds.join(", ")}]`
+  
+  // Determine names for commit message
+  const projects = await getProjectsAction()
+  const projectNames = projectIds.map(id => {
+    const p = projects.find((p: any) => p.id === id)
+    return p?.title || id
+  })
+  
+  const defaultMsg = `docs: sync changes for [${projectNames.join(", ")}]`
   const finalMsg = commitMessage || defaultMsg
   
   // 3. Batch Commit to main branch (Global)
