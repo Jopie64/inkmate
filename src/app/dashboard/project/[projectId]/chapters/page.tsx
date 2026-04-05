@@ -1,5 +1,5 @@
 import { auth } from "@/auth"
-import { getOctokit, getProject } from "@/lib/github"
+import { getProjectAction } from "@/app/actions/projects"
 import { ChaptersClient } from "./chapters-client"
 import { redirect } from "next/navigation"
 
@@ -8,8 +8,7 @@ export default async function ChaptersPage({ params }: { params: Promise<{ proje
   const session = await auth()
   if (!session?.user?.name || !session?.accessToken) redirect("/")
   
-  const octokit = await getOctokit(session.accessToken as string)
-  const projectInfo = await getProject(octokit, session.user.name, projectId)
+  const projectInfo = await getProjectAction(projectId)
   
   const chapters = projectInfo?.chapters || []
 

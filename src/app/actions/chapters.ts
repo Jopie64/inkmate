@@ -3,6 +3,7 @@
 import { auth } from "@/auth"
 import { getOctokit, getFileContent } from "@/lib/github"
 import { saveToWorkingDir, getFromWorkingDir } from "@/lib/blob"
+import { revalidatePath } from "next/cache"
 
 export async function getChapterContentAction(projectId: string, chapterId: string, branch: string = "main") {
   const session = await auth()
@@ -63,6 +64,9 @@ export async function saveChapterAction(projectId: string, title: string, conten
     // Save updated index to Blob
     await saveToWorkingDir(userId, projectId, branch, `index.json`, JSON.stringify(projectIndex, null, 2))
   }
+  
+  revalidatePath(`/dashboard/project/${projectId}/chapters`)
+  revalidatePath(`/dashboard/project/${projectId}`)
   
   return uuid
 }
