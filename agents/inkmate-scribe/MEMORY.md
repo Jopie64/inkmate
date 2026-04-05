@@ -41,10 +41,9 @@ Alle codebase en inline-documentatie dient in het Engels te zijn, de applicatie 
 - **Sequential vs Parallel:** Blob-operaties (put/get) zijn traag op Vercel. Paralleliseer ze met `Promise.all` waar mogelijk (bijv. content opslaan en index ophalen) om de wachttijd voor de gebruiker te halveren.
 - **Multi-user Isolation:** Gebruik altijd de `userId` (vanuit de session) als root-prefix in de Blob store om data-isolatie te garanderen in een gedeelde Vercel Blob omgeving.
 
-### On Environment & Tools
-- **PowerShell op Windows**: Pas op met command-line chaining. Gebruik `;` in plaats van `&&` voor het bundelen van terminal commands. Gebruik ook geen `mkdir -p` (werkt niet recursief/als alias); gebruik in plaats daarvan `New-Item -ItemType Directory -Path "..." -Force` voor het aanmaken van mappenstructuren.
+  - Frontend: De `useChat` hook stopt de payload van de assistant niet in `content`, maar in de sub-array `parts` (`m.parts.map(p => p.text)`). 
+  - **Transport Logic (v6.0.34+):** Top-level `body` en `headers` in `useChat` zijn verplaatst naar de `DefaultChatTransport`. Configureer deze nu via `transport: new DefaultChatTransport({ body: { ... } })`.
+  - **sendMessage (v6.0.34+):** Gebruik `sendMessage({ text: input })` in plaats van `content`. `role` hoeft niet meegegeven te worden voor de user op de client.
 
-### On SDKs and Integrations
-- **Vercel AI SDK 6.0+:** De architectuur is overgestapt van pure data-streams naar strakke `UIMessageStream` protocollen. 
-  - Backend: Gebruik `ToolLoopAgent` en `createAgentUIStreamResponse` in de API route (`streamText` is gedepriveerd voor de UI). Zorg dat inkomende berichten strict een `id`, `role`, en `parts` (arrays) bezitten, anders faalt de Zod-validatie van de SDK.
-  - Frontend: De `useChat` hook stopt de payload van de assistant niet in `content`, maar in de sub-array `parts` (`m.parts.map(p => p.text)`).
+### On Environment & Tools
+- **PowerShell op Windows:** Er is geen native `grep` beschikbaar. Gebruik `Select-String` voor het zoeken in bestanden vanuit de terminal. Bijv: `Select-String -Path "file" -Pattern "query"`. Voor complexere zoekopdrachten in de codebase heeft de `grep_search` tool van de assistent de voorkeur (deze werkt wel).

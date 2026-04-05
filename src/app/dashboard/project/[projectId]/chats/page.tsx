@@ -1,6 +1,7 @@
 "use client"
 
 import { useChat } from "@ai-sdk/react"
+import { DefaultChatTransport } from "ai"
 import { Send, Bot, User, CheckSquare, Square, Settings } from "lucide-react"
 import { useState } from "react"
 import { useParams } from "next/navigation"
@@ -17,26 +18,27 @@ export default function ChatsPage() {
     characters: true,
   })
 
-  // @ts-ignore - Bypass version-specific type mismatches in Vercel AI SDK
   const { messages, sendMessage, status, error } = useChat({
-    body: {
-      projectId,
-      contextConfig
-    },
+    transport: new DefaultChatTransport({
+      body: {
+        projectId,
+        contextConfig
+      }
+    }),
     onFinish: (options: any) => {
       console.log("[useChat onFinish]: Message complete", options);
     },
     onError: (err: any) => {
       console.error("[useChat Error]:", err);
     }
-  }) as any
+  })
   const isLoading = status === 'streaming' || status === 'submitted'
   const [input, setInput] = useState("")
 
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault()
     if (!input.trim()) return
-    sendMessage({ role: 'user', content: input })
+    sendMessage({ text: input })
     setInput("")
   }
 
