@@ -1,5 +1,4 @@
 import { auth } from "@/auth"
-import { getOctokit, ensureRepository } from "@/lib/github"
 import { getProjectsAction, refreshProjectsAction } from "@/app/actions/projects"
 import { Plus, Settings2, Clock, RefreshCw } from "lucide-react"
 import Link from "next/link"
@@ -12,15 +11,6 @@ export default async function Dashboard() {
     redirect("/")
   }
 
-  const octokit = await getOctokit(session.accessToken)
-  
-  // Fetch username
-  const { data: user } = await octokit.rest.users.getAuthenticated()
-  const owner = user.login
-
-  // Ensure repository exists
-  await ensureRepository(octokit, owner)
-  
   // Use Blob-First projects action
   const projects = await getProjectsAction()
 

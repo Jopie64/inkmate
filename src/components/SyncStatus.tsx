@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Cloud, CloudOff, RefreshCw, CheckCircle2, AlertCircle, Send, Loader2 } from "lucide-react"
 import { getSyncStatusAction, syncProjectToGitHubAction, checkAndSyncProjectAction } from "@/app/actions/sync"
 import { motion, AnimatePresence } from "framer-motion"
@@ -11,6 +11,7 @@ export function SyncStatus({ projectId }: { projectId: string }) {
   const [status, setStatus] = useState<{ isDirty: boolean; count: number }>({ isDirty: false, count: 0 })
   const [isSyncing, setIsSyncing] = useState(false)
   const [isChecking, setIsChecking] = useState(false)
+  const [syncError, setSyncError] = useState<string | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [commitMessage, setCommitMessage] = useState("")
   const [result, setResult] = useState<{ success: boolean; message?: string; isConflict?: boolean; branch?: string } | null>(null)
@@ -24,26 +25,29 @@ export function SyncStatus({ projectId }: { projectId: string }) {
     }
   }
 
-  useEffect(() => {
-    const initSync = async () => {
-      setIsChecking(true)
-      try {
-        const check = await checkAndSyncProjectAction(projectId)
-        if (check.status === 'synced-from-github' || check.status === 'initial-seed') {
-          router.refresh()
-        }
-        await checkStatus()
-      } catch (e) {
-        console.error("Background sync check failed", e)
-      } finally {
-        setIsChecking(false)
+  const initSync = useCallback(async () => {
+    setIsChecking(true)
+    setSyncError(null)
+    try {
+      const check = await checkAndSyncProjectAction(projectId)
+      if (check.status === 'synced-from-github' || check.status === 'initial-seed') {
+        router.refresh()
+      } else if (check.status === 'github-error') {
+        setSyncError(check.error || "GitHub error")
       }
+      await checkStatus()
+    } catch (e: any) {
+      setSyncError(e.message || "Failed to check sync status")
+    } finally {
+      setIsChecking(false)
     }
+  }, [projectId, router])
 
+  useEffect(() => {
     initSync()
     const interval = setInterval(checkStatus, 20000) // Poll every 20s
     return () => clearInterval(interval)
-  }, [projectId])
+  }, [initSync])
 
   const handleSync = async () => {
     setIsSyncing(true)
@@ -75,16 +79,32 @@ export function SyncStatus({ projectId }: { projectId: string }) {
   return (
     <div className="flex items-center gap-3">
       <div 
-        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${
-          status.isDirty 
-            ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' 
-            : 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20'
+        onClick={() => {
+            if (syncError) initSync()
+            else if (!isChecking && !isSyncing) setShowModal(true)
+        }}
+        className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold transition-all shadow-sm cursor-pointer ${
+          syncError 
+            ? "bg-red-500/10 text-red-500 border border-red-500/50 hover:bg-red-500/20"
+            : isChecking
+            ? "bg-zinc-800 text-zinc-400 border border-zinc-700"
+            : status.isDirty 
+            ? "bg-amber-500/10 text-amber-500 border border-amber-500/50 hover:bg-amber-500/20" 
+            : "bg-emerald-500/10 text-emerald-500 border border-emerald-500/50 hover:bg-emerald-500/20"
         }`}
-        title={status.isDirty ? `${status.count} files modified locally` : 'All changes synced to GitHub'}
+        title={syncError ? `Sync Error: ${syncError}. Click to retry.` : status.isDirty ? `${status.count} files modified locally` : 'All changes synced to GitHub'}
       >
-        {isChecking ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : status.isDirty ? <CloudOff className="w-3.5 h-3.5" /> : <Cloud className="w-3.5 h-3.5" />}
+        {isChecking ? (
+          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+        ) : syncError ? (
+          <AlertCircle className="w-3.5 h-3.5" />
+        ) : status.isDirty ? (
+          <CloudOff className="w-3.5 h-3.5" />
+        ) : (
+          <Cloud className="w-3.5 h-3.5" />
+        )}
         <span className="hidden sm:inline">
-          {isChecking ? 'Checking sync...' : status.isDirty ? `${status.count} unsynced changes` : 'Synced to GitHub'}
+          {isChecking ? 'Checking sync...' : syncError ? 'Sync Error (Click to retry)' : status.isDirty ? `${status.count} unsynced changes` : 'Synced to GitHub'}
         </span>
       </div>
 

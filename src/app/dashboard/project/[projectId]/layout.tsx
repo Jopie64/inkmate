@@ -1,6 +1,6 @@
 import { auth } from "@/auth"
-import { getOctokit, getProject } from "@/lib/github"
 import { redirect } from "next/navigation"
+import { getProjectAction } from "@/app/actions/projects"
 import Link from "next/link"
 import { FileText, BookOpen, Users, StickyNote, History, MessageSquare, ChevronLeft } from "lucide-react"
 import { SyncStatus } from "@/components/SyncStatus"
@@ -15,13 +15,10 @@ export default async function ProjectLayout({
   const session = await auth()
   if (!session?.accessToken) redirect("/")
   
-  const resolvedParams = await params
-  const { projectId } = resolvedParams
+  const { projectId } = await params
   
-  const octokit = await getOctokit(session.accessToken)
-  const { data: user } = await octokit.rest.users.getAuthenticated()
-  
-  const project = await getProject(octokit, user.login, projectId)
+  // Use Blob-First projects action
+  const project = await getProjectAction(projectId)
   
   if (!project) {
     return (

@@ -104,45 +104,51 @@ export async function checkAndSyncProjectAction(projectId: string, branchName: s
   if (!session?.user?.name || !session?.accessToken) return { status: 'unauthorized' }
   const userId = session.user.name
   
-  // 1. Get local state
-  const meta = await getSyncMeta(userId, projectId, branchName)
-  const dirtyFiles = await listDirtyFiles(userId, projectId, branchName)
-  
-  // 2. Get remote state
-  const octokit = await getOctokit(session.accessToken)
-  let remoteSha = ""
   try {
-    const { data: refData } = await octokit.rest.git.getRef({
-      owner: userId,
-      repo: REPO_NAME,
-      ref: `heads/${branchName}`
-    })
-    remoteSha = refData.object.sha
+    // 1. Get local state
+    const meta = await getSyncMeta(userId, projectId, branchName)
+    const dirtyFiles = await listDirtyFiles(userId, projectId, branchName)
+    
+    // 2. Get remote state
+    const octokit = await getOctokit(session.accessToken)
+    let remoteSha = ""
+    try {
+      const { data: refData } = await octokit.rest.git.getRef({
+        owner: userId,
+        repo: REPO_NAME,
+        ref: `heads/${branchName}`
+      })
+      remoteSha = refData.object.sha
+    } catch (e: any) {
+      if (e.status === 404) return { status: 'not-on-github' }
+      throw e
+    }
+    
+    // 3. Sync if remote is ahead and NOT dirty
+    if (meta && meta.lastSyncedSha !== remoteSha && dirtyFiles.length === 0) {
+      console.log(`Syncing project ${projectId} from GitHub (remote moved from ${meta.lastSyncedSha} to ${remoteSha})`)
+      
+      // Fetch project index and chapters from GitHub and update Blob
+      await seedProjectFromGitHub(octokit, userId, projectId, branchName, remoteSha)
+      
+      return { status: 'synced-from-github', newSha: remoteSha }
+    }
+    
+    if (!meta && dirtyFiles.length === 0) {
+       // Initial seed
+       await seedProjectFromGitHub(octokit, userId, projectId, branchName, remoteSha)
+       return { status: 'initial-seed', newSha: remoteSha }
+    }
+    
+    return { 
+      status: 'up-to-date', 
+      isDirty: dirtyFiles.length > 0, 
+      remoteAhead: meta ? meta.lastSyncedSha !== remoteSha : false 
+    }
   } catch (e: any) {
-    if (e.status === 404) return { status: 'not-on-github' }
-    throw e
-  }
-  
-  // 3. Sync if remote is ahead and NOT dirty
-  if (meta && meta.lastSyncedSha !== remoteSha && dirtyFiles.length === 0) {
-    console.log(`Syncing project ${projectId} from GitHub (remote moved from ${meta.lastSyncedSha} to ${remoteSha})`)
-    
-    // Fetch project index and chapters from GitHub and update Blob
-    await seedProjectFromGitHub(octokit, userId, projectId, branchName, remoteSha)
-    
-    return { status: 'synced-from-github', newSha: remoteSha }
-  }
-  
-  if (!meta && dirtyFiles.length === 0) {
-     // Initial seed
-     await seedProjectFromGitHub(octokit, userId, projectId, branchName, remoteSha)
-     return { status: 'initial-seed', newSha: remoteSha }
-  }
-  
-  return { 
-    status: 'up-to-date', 
-    isDirty: dirtyFiles.length > 0, 
-    remoteAhead: meta ? meta.lastSyncedSha !== remoteSha : false 
+    const msg = e.message || "GitHub communication failed"
+    console.error(`Status check failed for ${projectId}:`, msg)
+    return { status: 'github-error', error: msg }
   }
 }
 
