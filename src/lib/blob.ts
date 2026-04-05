@@ -28,10 +28,10 @@ export async function saveToWorkingDir(
   const dirtyPath = `${getBasePath(userId, projectId, branchName)}/dirty/${path}`
   
   // 1. Save the file
-  await put(fullPath, content, { access: 'private', addRandomSuffix: false })
+  await put(fullPath, content, { access: 'private', addRandomSuffix: false, allowOverwrite: true })
   
   // 2. Mark as dirty
-  await put(dirtyPath, '', { access: 'private', addRandomSuffix: false })
+  await put(dirtyPath, 'dirty', { access: 'private', addRandomSuffix: false, allowOverwrite: true })
 }
 
 export async function getFromWorkingDir(
@@ -130,7 +130,7 @@ export async function saveSyncMeta(
   meta: ProjectSyncMeta
 ) {
   const fullPath = `${getBasePath(userId, projectId, branchName)}/meta.json`
-  await put(fullPath, JSON.stringify(meta), { access: 'private', addRandomSuffix: false })
+  await put(fullPath, JSON.stringify(meta), { access: 'private', addRandomSuffix: false, allowOverwrite: true })
 }
 
 export async function getBlobFileUrl(pathname: string) {
