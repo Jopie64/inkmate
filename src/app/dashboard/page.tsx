@@ -1,6 +1,7 @@
 import { auth } from "@/auth"
-import { getOctokit, listProjects, ensureRepository } from "@/lib/github"
-import { Plus, Settings2, Clock } from "lucide-react"
+import { getOctokit, ensureRepository } from "@/lib/github"
+import { getProjectsAction, refreshProjectsAction } from "@/app/actions/projects"
+import { Plus, Settings2, Clock, RefreshCw } from "lucide-react"
 import Link from "next/link"
 import { redirect } from "next/navigation"
 
@@ -20,8 +21,8 @@ export default async function Dashboard() {
   // Ensure repository exists
   await ensureRepository(octokit, owner)
   
-  // Fetch actual projects from GitHub
-  const projects = await listProjects(octokit, owner)
+  // Use Blob-First projects action
+  const projects = await getProjectsAction()
 
   return (
     <div className="max-w-6xl mx-auto p-8">
@@ -30,6 +31,12 @@ export default async function Dashboard() {
           <h1 className="text-3xl font-bold tracking-tight">Your Stories</h1>
           <p className="text-zinc-400 mt-1">Manage and continue writing your projects.</p>
         </div>
+        <form action={async () => { "use server"; await refreshProjectsAction(); }}>
+            <button type="submit" className="flex items-center gap-2 px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-md text-sm font-medium transition-colors cursor-pointer">
+                <RefreshCw className="w-4 h-4" />
+                Refresh from GitHub
+            </button>
+        </form>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -48,7 +55,7 @@ export default async function Dashboard() {
             <p>You don't have any stories yet.</p>
             <p className="text-sm">Click "New Story" to begin your journey.</p>
           </div>
-        ) : projects.map((project) => (
+        ) : projects.map((project: any) => (
           <div key={project.id} className="flex flex-col h-64 rounded-xl border border-zinc-800 bg-zinc-900/20 hover:bg-zinc-900/60 transition-all overflow-hidden group">
             <div className="p-6 flex-1 flex flex-col">
               <h3 className="text-xl font-bold text-zinc-100 mb-2 truncate group-hover:text-emerald-400 transition-colors">{project.title}</h3>

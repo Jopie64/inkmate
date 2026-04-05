@@ -1,13 +1,16 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Cloud, CloudOff, RefreshCw, CheckCircle2, AlertCircle, Send } from "lucide-react"
-import { getSyncStatusAction, syncProjectToGitHubAction } from "@/app/actions/sync"
+import { Cloud, CloudOff, RefreshCw, CheckCircle2, AlertCircle, Send, Loader2 } from "lucide-react"
+import { getSyncStatusAction, syncProjectToGitHubAction, checkAndSyncProjectAction } from "@/app/actions/sync"
 import { motion, AnimatePresence } from "framer-motion"
+import { useRouter } from "next/navigation"
 
 export function SyncStatus({ projectId }: { projectId: string }) {
+  const router = useRouter()
   const [status, setStatus] = useState<{ isDirty: boolean; count: number }>({ isDirty: false, count: 0 })
   const [isSyncing, setIsSyncing] = useState(false)
+  const [isChecking, setIsChecking] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [commitMessage, setCommitMessage] = useState("")
   const [result, setResult] = useState<{ success: boolean; message?: string; isConflict?: boolean; branch?: string } | null>(null)
@@ -22,8 +25,23 @@ export function SyncStatus({ projectId }: { projectId: string }) {
   }
 
   useEffect(() => {
-    checkStatus()
-    const interval = setInterval(checkStatus, 300000) // Poll every 5 minutes
+    const initSync = async () => {
+      setIsChecking(true)
+      try {
+        const check = await checkAndSyncProjectAction(projectId)
+        if (check.status === 'synced-from-github' || check.status === 'initial-seed') {
+          router.refresh()
+        }
+        await checkStatus()
+      } catch (e) {
+        console.error("Background sync check failed", e)
+      } finally {
+        setIsChecking(false)
+      }
+    }
+
+    initSync()
+    const interval = setInterval(checkStatus, 20000) // Poll every 20s
     return () => clearInterval(interval)
   }, [projectId])
 
@@ -32,9 +50,9 @@ export function SyncStatus({ projectId }: { projectId: string }) {
     setResult(null)
     try {
       const msg = commitMessage.trim() || `docs: update project ${projectId} (synced from Inkmate)`
-      const res = await syncProjectToGitHubAction(projectId, msg)
+      const res: any = await syncProjectToGitHubAction(projectId, msg)
       
-      if (res.success) {
+      if (res && res.success) {
         setResult({ success: true, isConflict: res.isConflict, branch: res.branch })
         setStatus({ isDirty: false, count: 0 })
         
@@ -44,6 +62,8 @@ export function SyncStatus({ projectId }: { projectId: string }) {
           setResult(null)
           setCommitMessage("")
         }, res.isConflict ? 5000 : 2000)
+      } else {
+        setResult({ success: false, message: res?.message || "Sync failed" })
       }
     } catch (e: any) {
       setResult({ success: false, message: e.message })
@@ -62,9 +82,9 @@ export function SyncStatus({ projectId }: { projectId: string }) {
         }`}
         title={status.isDirty ? `${status.count} files modified locally` : 'All changes synced to GitHub'}
       >
-        {status.isDirty ? <CloudOff className="w-3.5 h-3.5" /> : <Cloud className="w-3.5 h-3.5" />}
+        {isChecking ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : status.isDirty ? <CloudOff className="w-3.5 h-3.5" /> : <Cloud className="w-3.5 h-3.5" />}
         <span className="hidden sm:inline">
-          {status.isDirty ? `${status.count} unsynced changes` : 'Synced to GitHub'}
+          {isChecking ? 'Checking sync...' : status.isDirty ? `${status.count} unsynced changes` : 'Synced to GitHub'}
         </span>
       </div>
 

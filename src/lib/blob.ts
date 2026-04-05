@@ -138,3 +138,41 @@ export async function getBlobFileUrl(pathname: string) {
     if (blobs.length > 0) return blobs[0].url;
     return null;
 }
+
+export async function deleteFromWorkingDir(
+  userId: string,
+  projectId: string,
+  branchName: string,
+  path: string
+) {
+  const fullPath = `${getBasePath(userId, projectId, branchName)}/working/${path}`
+  const { blobs } = await list({ prefix: fullPath })
+  if (blobs.length > 0) {
+    await del(blobs.map(b => b.url))
+  }
+}
+
+export async function getUserMeta(userId: string, key: string) {
+  const fullPath = `${userId}/meta/${key}.json`
+  try {
+    const result = await get(fullPath, { access: 'private' })
+    if (result && result.statusCode === 200) {
+       const reader = result.stream.getReader()
+       const chunks: Uint8Array[] = []
+       while (true) {
+         const { done, value } = await reader.read()
+         if (done) break
+         chunks.push(value)
+       }
+       return JSON.parse(Buffer.concat(chunks).toString("utf-8"))
+    }
+    return null
+  } catch (e) {
+    return null
+  }
+}
+
+export async function saveUserMeta(userId: string, key: string, data: any) {
+  const fullPath = `${userId}/meta/${key}.json`
+  await put(fullPath, JSON.stringify(data), { access: 'private', addRandomSuffix: false, allowOverwrite: true })
+}
