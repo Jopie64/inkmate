@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown"
 import { Save, Plus, Edit2, BookOpen, Loader2 } from "lucide-react"
 import { getChapterContentAction, saveChapterAction } from "@/app/actions/chapters"
 import { useRouter } from "next/navigation"
+import { getLocalChapter, saveLocalChapter, clearLocalChapter } from "@/lib/cache"
 
 export function ChaptersClient({ projectId, initialChapters }: { projectId: string, initialChapters: any[] }) {
   const router = useRouter()
@@ -21,6 +22,19 @@ export function ChaptersClient({ projectId, initialChapters }: { projectId: stri
   useEffect(() => {
     if (!selectedId) return
     const loadChapter = async () => {
+      // 1. Check local cache first for eventual consistency
+      const localText = getLocalChapter(projectId, selectedId)
+      if (localText) {
+        setContent(localText)
+        const ch = chapters.find(c => c.id === selectedId)
+        if (ch) setTitle(ch.title)
+        // We still load from server in background if content is empty or to stay in sync
+        if (localText.trim()) {
+           setIsLoading(false)
+           return
+        }
+      }
+
       setIsLoading(true)
       try {
         const text = await getChapterContentAction(projectId, selectedId)
@@ -40,9 +54,15 @@ export function ChaptersClient({ projectId, initialChapters }: { projectId: stri
     if (!title.trim()) return
     setIsSaving(true)
     try {
+      // 1. Optimistic UI / Local Cache
+      saveLocalChapter(projectId, selectedId || 'new', content)
+      
       const newId = await saveChapterAction(projectId, title, content, selectedId || undefined)
       if (!selectedId) {
          setSelectedId(newId)
+         // Move local cache from 'new' to actual ID
+         saveLocalChapter(projectId, newId, content)
+         clearLocalChapter(projectId, 'new')
          setChapters([...chapters, { id: newId, title }])
       } else {
          setChapters(chapters.map(c => c.id === selectedId ? { ...c, title } : c))

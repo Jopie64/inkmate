@@ -36,20 +36,22 @@ export async function saveChapterAction(projectId: string, title: string, conten
   
   const uuid = chapterId || crypto.randomUUID()
   
-  // 1. Save to Blob Working Dir (Instant)
-  await saveToWorkingDir(userId, projectId, branch, `chapters/${uuid}/full.md`, content)
+  // 1. Parallelize Saving Content and Fetching existing index
+  const savedPromise = saveToWorkingDir(userId, projectId, branch, `chapters/${uuid}/full.md`, content)
+  const indexPromise = getFromWorkingDir(userId, projectId, branch, `index.json`)
   
-  // 2. Update local index.json in Blob Working Dir
-  let indexStr = await getFromWorkingDir(userId, projectId, branch, `index.json`)
+  const [_, indexStr] = await Promise.all([savedPromise, indexPromise])
   
-  if (!indexStr) {
-    // Fallback: get from GitHub
+  // 2. Update local index.json if it exists
+  let finalIndexStr = indexStr
+  if (!finalIndexStr) {
+    // Fallback: get from GitHub if missing in Blob
     const octokit = await getOctokit(session.accessToken as string)
-    indexStr = await getFileContent(octokit, userId, `${projectId}/index.json`)
+    finalIndexStr = await getFileContent(octokit, userId, `${projectId}/index.json`)
   }
   
-  if (indexStr) {
-    const projectIndex = JSON.parse(indexStr)
+  if (finalIndexStr) {
+    const projectIndex = JSON.parse(finalIndexStr)
     const chapterExists = projectIndex.chapters?.find((c: any) => c.id === uuid)
     
     if (chapterExists) {
