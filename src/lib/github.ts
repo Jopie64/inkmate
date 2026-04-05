@@ -157,3 +157,62 @@ export async function createOrUpdateFile(octokit: Octokit, owner: string, path: 
   })
 }
 
+export async function commitMultipleFiles(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  branch: string,
+  files: { path: string; content: string }[],
+  message: string
+) {
+  // 1. Get the current commit SHA
+  const { data: refData } = await octokit.rest.git.getRef({
+    owner,
+    repo,
+    ref: `heads/${branch}`,
+  })
+  const baseSha = refData.object.sha
+
+  // 2. Get the tree SHA for the base commit
+  const { data: commitData } = await octokit.rest.git.getCommit({
+    owner,
+    repo,
+    commit_sha: baseSha,
+  })
+  const baseTreeSha = commitData.tree.sha
+
+  // 3. Create the new tree
+  const treeItems = files.map(file => ({
+    path: file.path,
+    mode: "100644" as const,
+    type: "blob" as const,
+    content: file.content,
+  }))
+
+  const { data: newTreeData } = await octokit.rest.git.createTree({
+    owner,
+    repo,
+    base_tree: baseTreeSha,
+    tree: treeItems,
+  })
+
+  // 4. Create the new commit
+  const { data: newCommitData } = await octokit.rest.git.createCommit({
+    owner,
+    repo,
+    message,
+    tree: newTreeData.sha,
+    parents: [baseSha],
+  })
+
+  // 5. Update the ref
+  await octokit.rest.git.updateRef({
+    owner,
+    repo,
+    ref: `heads/${branch}`,
+    sha: newCommitData.sha,
+  })
+
+  return newCommitData.sha
+}
+

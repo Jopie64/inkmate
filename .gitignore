@@ -42,3 +42,6 @@ next-env.d.ts
 
 # Agentic stuff
 /.agents
+
+.vercel
+.env*.local

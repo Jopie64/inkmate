@@ -3,6 +3,7 @@ import { getOctokit, getProject } from "@/lib/github"
 import { redirect } from "next/navigation"
 import Link from "next/link"
 import { FileText, BookOpen, Users, StickyNote, History, MessageSquare, ChevronLeft } from "lucide-react"
+import { SyncStatus } from "@/components/SyncStatus"
 
 export default async function ProjectLayout({
   children,
@@ -43,14 +44,18 @@ export default async function ProjectLayout({
   return (
     <div className="flex flex-col h-full bg-zinc-950 text-zinc-50">
       <header className="px-6 py-4 border-b border-zinc-800 bg-zinc-900/50">
-        <div className="flex items-center gap-4 mb-4">
-          <Link href="/dashboard" className="p-2 -ml-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded-md transition-colors cursor-pointer">
-            <ChevronLeft className="w-5 h-5" />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold">{project.title}</h1>
-            <p className="text-sm text-zinc-400">Workspace</p>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-4">
+            <Link href="/dashboard" className="p-2 -ml-2 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded-md transition-colors cursor-pointer">
+              <ChevronLeft className="w-5 h-5" />
+            </Link>
+            <div>
+              <h1 className="text-2xl font-bold">{project.title}</h1>
+              <p className="text-sm text-zinc-400">Workspace</p>
+            </div>
           </div>
+          
+          <SyncStatus projectId={projectId} />
         </div>
         
         {/* Navigation Tabs */}
