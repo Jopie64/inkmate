@@ -1,4 +1,4 @@
-import { put, list, del, head } from "@vercel/blob"
+import { put, list, del, head, get } from "@vercel/blob"
 
 /**
  * Path structure:
@@ -28,10 +28,10 @@ export async function saveToWorkingDir(
   const dirtyPath = `${getBasePath(userId, projectId, branchName)}/dirty/${path}`
   
   // 1. Save the file
-  await put(fullPath, content, { access: 'public', addRandomSuffix: false })
+  await put(fullPath, content, { access: 'private', addRandomSuffix: false })
   
   // 2. Mark as dirty
-  await put(dirtyPath, '', { access: 'public', addRandomSuffix: false })
+  await put(dirtyPath, '', { access: 'private', addRandomSuffix: false })
 }
 
 export async function getFromWorkingDir(
@@ -42,21 +42,20 @@ export async function getFromWorkingDir(
 ) {
   const fullPath = `${getBasePath(userId, projectId, branchName)}/working/${path}`
   try {
-    const response = await fetch(`https://inkmate-blob.vercel.app/${fullPath}`) // This is a placeholder, actual blob URLs are different but we can use head() to get it
-    // Actually, Vercel Blob URLs are not deterministic like this. 
-    // We should use list() to find the URL or store the URL in a manifest.
-    // BUT! Vercel Blob is not a file system. If we use addRandomSuffix: false, we still get a randomish URL.
-    // Wait, addRandomSuffix: false means the URL is deterministic based on the token and path? No, it just avoids the suffix.
-    // Let's check the Vercel Blob documentation (mentally or via search if needed).
-    // Actually, we should probably store the mapping or use list() with prefix.
-    
-    const { blobs } = await list({ prefix: fullPath })
-    if (blobs.length > 0) {
-      const resp = await fetch(blobs[0].url)
-      return await resp.text()
+    const result = await get(fullPath, { access: 'private' })
+    if (result && result.statusCode === 200) {
+      const reader = result.stream.getReader()
+      const chunks: Uint8Array[] = []
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        chunks.push(value)
+      }
+      return Buffer.concat(chunks).toString("utf-8")
     }
     return null
   } catch (e) {
+    console.error("Error reading from Blob working dir", e)
     return null
   }
 }
@@ -105,12 +104,23 @@ export async function getSyncMeta(
   branchName: string
 ): Promise<ProjectSyncMeta | null> {
   const fullPath = `${getBasePath(userId, projectId, branchName)}/meta.json`
-  const { blobs } = await list({ prefix: fullPath })
-  if (blobs.length > 0) {
-    const resp = await fetch(blobs[0].url)
-    return await resp.json()
+  try {
+    const result = await get(fullPath, { access: 'private' })
+    if (result && result.statusCode === 200) {
+       const reader = result.stream.getReader()
+       const chunks: Uint8Array[] = []
+       while (true) {
+         const { done, value } = await reader.read()
+         if (done) break
+         chunks.push(value)
+       }
+       return JSON.parse(Buffer.concat(chunks).toString("utf-8"))
+    }
+    return null
+  } catch (e) {
+    console.error("Error reading sync meta from Blob", e)
+    return null
   }
-  return null
 }
 
 export async function saveSyncMeta(
@@ -120,7 +130,7 @@ export async function saveSyncMeta(
   meta: ProjectSyncMeta
 ) {
   const fullPath = `${getBasePath(userId, projectId, branchName)}/meta.json`
-  await put(fullPath, JSON.stringify(meta), { access: 'public', addRandomSuffix: false })
+  await put(fullPath, JSON.stringify(meta), { access: 'private', addRandomSuffix: false })
 }
 
 export async function getBlobFileUrl(pathname: string) {
