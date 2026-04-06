@@ -72,55 +72,93 @@ export async function POST(req: Request) {
           }
         });
 
-        // 2. Apply lookup and fix parts
+        // 2. Apply lookup and ULTRA-CLEAN fix parts
         const fixedPrompt = params.prompt.map(msg => {
-          // A. Normalize assistant and user messages (Merge text parts, simplify to string)
-          if ((msg.role === 'assistant' || msg.role === 'user') && Array.isArray(msg.content)) {
-            const parts = (msg.content as any[]).map(part => {
-              if (part.type === 'reasoning') return { type: 'text', text: part.text };
+          const role = msg.role;
+          let content = msg.content;
+
+          if (Array.isArray(content)) {
+            const cleanedParts = (content as any[]).map(part => {
+              // A. Convert reasoning to text (Groq Harmony Fix)
+              if (part.type === 'reasoning') {
+                return { type: 'text', text: part.text };
+              }
+
+              // B. Clean Text Parts
+              if (part.type === 'text') {
+                return { type: 'text', text: part.text };
+              }
+
+              // C. Clean & Fix Tool Calls (Strip providerOptions)
+              if (part.type === 'tool-call') {
+                return {
+                  type: 'tool-call',
+                  toolCallId: part.toolCallId,
+                  toolName: part.toolName || toolNameLookup.get(part.toolCallId) || 'unknown',
+                  input: part.input,
+                };
+              }
+
+              // D. Clean & Fix Tool Results (Simplifying JSON output to text + Strip providerOptions)
+              if (part.type === 'tool-result') {
+                let output = part.output;
+                if (output && output.type === 'json') {
+                  output = { type: 'text', value: JSON.stringify(output.value) };
+                }
+                return {
+                  type: 'tool-result',
+                  toolCallId: part.toolCallId,
+                  toolName: part.toolName || toolNameLookup.get(part.toolCallId) || 'unknown',
+                  output: output,
+                };
+              }
+
               return part;
+            }).filter(part => {
+              // STRIP EMPTY TEXT PARTS
+              if (part.type === 'text' && (!part.text || part.text.trim() === '')) {
+                return false;
+              }
+              return true;
             });
 
+            // E. Merge consecutive text parts
             const mergedParts: any[] = [];
-            parts.forEach(part => {
+            cleanedParts.forEach(p => {
               const last = mergedParts[mergedParts.length - 1];
-              if (part.type === 'text' && last?.type === 'text') {
-                last.text += '\n' + part.text;
+              if (p.type === 'text' && last?.type === 'text') {
+                last.text += '\n' + p.text;
               } else {
-                // Apply toolName fix for tool-calls while mapping
-                if (part.type === 'tool-call' && !part.toolName) {
-                  part.toolName = toolNameLookup.get(part.toolCallId) || 'unknown';
-                }
-                mergedParts.push(part);
+                mergedParts.push(p);
               }
             });
-
-            // fused mergedParts array (don't simplify to string to avoid SDK TypeErrors)
-            return { ...msg, content: mergedParts };
+            content = mergedParts;
           }
 
-          // B. Fix tool-result messages
-          if (msg.role === 'tool' && Array.isArray(msg.content)) {
-            return {
-              ...msg,
-              content: msg.content.map(part => {
-                if (part.type === 'tool-result' && !part.toolName) {
-                  const inferredName = toolNameLookup.get(part.toolCallId) || 'unknown';
-                  return { ...part, toolName: inferredName };
-                }
-                return part;
-              })
-            };
-          }
-          return msg;
+          // Return strictly cleaned message object
+          return { role, content };
         }) as any;
 
-        const finalParams = { ...params, prompt: fixedPrompt };
-        
-        // LOG FULL PARAMS AS REQUESTED
-        console.log(`[Middleware] Final Params (Pre-v3-send): ${JSON.stringify(finalParams, null, 2)}`);
+        // F. TOP-LEVEL CLEANING: Only standard LanguageModelV3CallOptions fields
+        const ultraCleanParams: any = {
+          prompt: fixedPrompt,
+          tools: params.tools, // Keep tools as-is to avoid schema validation issues
+          toolChoice: params.toolChoice,
+          maxOutputTokens: params.maxOutputTokens,
+          temperature: params.temperature,
+          topP: params.topP,
+          topK: params.topK,
+          stopSequences: params.stopSequences,
+          seed: params.seed,
+          responseFormat: params.responseFormat,
+        };
 
-        return finalParams;
+        // Remove undefined keys to prevent them from being sent
+        Object.keys(ultraCleanParams).forEach(key => (ultraCleanParams[key] === undefined) && delete ultraCleanParams[key]);
+
+        console.log(`[Middleware] Final Ultra-Clean Params: ${JSON.stringify(ultraCleanParams, null, 2)}`);
+
+        return ultraCleanParams;
       }
     };
 
