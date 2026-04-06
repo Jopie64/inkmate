@@ -72,47 +72,61 @@ export async function POST(req: Request) {
           }
         });
 
-        // 2. Apply lookup and fix parts
+        // 2. Apply lookup and STRICT fix parts
         const fixedPrompt = params.prompt.map(msg => {
-          // A. Normalize assistant and user messages (Merge text parts, simplify to string)
-          if ((msg.role === 'assistant' || msg.role === 'user') && Array.isArray(msg.content)) {
-            const parts = (msg.content as any[]).map(part => {
-              if (part.type === 'reasoning') return { type: 'text', text: part.text };
+          const role = msg.role;
+          let content = msg.content;
+
+          if (Array.isArray(content)) {
+            const parts = (content as any[]).map(part => {
+              // A. Convert reasoning to text (Groq Harmony Fix)
+              if (part.type === 'reasoning') {
+                return { type: 'text', text: part.text };
+              }
+
+              // B. Clean Text Parts
+              if (part.type === 'text') {
+                return { type: 'text', text: part.text };
+              }
+
+              // C. Clean & Fix Tool Calls
+              if (part.type === 'tool-call') {
+                return {
+                  type: 'tool-call',
+                  toolCallId: part.toolCallId,
+                  toolName: part.toolName || toolNameLookup.get(part.toolCallId) || 'unknown',
+                  input: part.input,
+                };
+              }
+
+              // D. Clean & Fix Tool Results
+              if (part.type === 'tool-result') {
+                return {
+                  type: 'tool-result',
+                  toolCallId: part.toolCallId,
+                  toolName: part.toolName || toolNameLookup.get(part.toolCallId) || 'unknown',
+                  output: part.output,
+                };
+              }
+
               return part;
             });
 
+            // E. Merge consecutive text parts
             const mergedParts: any[] = [];
-            parts.forEach(part => {
+            parts.forEach(p => {
               const last = mergedParts[mergedParts.length - 1];
-              if (part.type === 'text' && last?.type === 'text') {
-                last.text += '\n' + part.text;
+              if (p.type === 'text' && last?.type === 'text') {
+                last.text += '\n' + p.text;
               } else {
-                // Apply toolName fix for tool-calls while mapping
-                if (part.type === 'tool-call' && !part.toolName) {
-                  part.toolName = toolNameLookup.get(part.toolCallId) || 'unknown';
-                }
-                mergedParts.push(part);
+                mergedParts.push(p);
               }
             });
-
-            // fused mergedParts array (don't simplify to string to avoid SDK TypeErrors)
-            return { ...msg, content: mergedParts };
+            content = mergedParts;
           }
 
-          // B. Fix tool-result messages
-          if (msg.role === 'tool' && Array.isArray(msg.content)) {
-            return {
-              ...msg,
-              content: msg.content.map(part => {
-                if (part.type === 'tool-result' && !part.toolName) {
-                  const inferredName = toolNameLookup.get(part.toolCallId) || 'unknown';
-                  return { ...part, toolName: inferredName };
-                }
-                return part;
-              })
-            };
-          }
-          return msg;
+          // Return strictly cleaned message object
+          return { role, content };
         }) as any;
 
         const finalParams = { ...params, prompt: fixedPrompt };
