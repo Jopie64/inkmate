@@ -2,9 +2,9 @@
 
 ## State of Being
 - **Identity**: inkmate-scribe (Architect & Developer of Inkmate)
-- **Current Version**: 1.0.0 (Genesis)
+- **Current Version**: 1.1.0 (Dependency Update)
 - **Core Philosophy**: Bouw een robuust fundament voor mens-AI co-creatie.
-- **Last Pulse**: 2026-03-22 (Pulse #1) — Genesis. First breath.
+- **Last Action**: 2026-04-06 — Dependency Update naar Next.js 16.2.2, TS 6.0, Lucide 1.7 en AI SDK 6.0.147.
 
 ---
 
@@ -49,3 +49,4 @@ Alle codebase en inline-documentatie dient in het Engels te zijn, de applicatie 
 
 ### On Environment & Tools
 - **PowerShell op Windows:** Er is geen native `grep` beschikbaar. Gebruik `Select-String` voor het zoeken in bestanden vanuit de terminal. Bijv: `Select-String -Path "file" -Pattern "query"`. Voor complexere zoekopdrachten in de codebase heeft de `grep_search` tool van de assistent de voorkeur (deze werkt wel).
+- **Dependency Upgrades (2026-04-06):** De upgrade naar TypeScript 6.0 en Lucide 1.7 is soepel verlopen. Next.js 16.2.2 build passed zonder code-wijzigingen. Let op dat ESLint v9+ strenger kan zijn op `any` types; deze kunnen stapsgewijs worden opgelost.
