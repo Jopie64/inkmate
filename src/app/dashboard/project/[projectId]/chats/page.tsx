@@ -98,7 +98,7 @@ export default function ChatsPage() {
                     : 'bg-zinc-800/50 border border-zinc-700/50 text-zinc-100'
                 }`}>
                   <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                    {m.role === 'user' ? m.content : m.parts?.map((part: any, i: number) => {
+                    {m.parts?.map((part: any, i: number) => {
                       if (part.type === 'text') return <span key={i}>{part.text}</span>;
                       if (part.type === 'tool-saveChapter') {
                         return <div key={i} className="text-xs text-orange-400 italic bg-orange-950/30 border border-orange-900/50 p-2 rounded-md my-2 block">📝 {part.state === 'output-available' ? `Chapter saved: ${part?.output?.title || ''}` : "Saving chapter..."}</div>
