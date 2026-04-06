@@ -74,20 +74,43 @@ export async function POST(req: Request) {
 
         // 2. Apply lookup and fix parts
         const fixedPrompt = params.prompt.map(msg => {
-          if ((msg.role === 'assistant' || msg.role === 'tool') && Array.isArray(msg.content)) {
+          // A. Normalize assistant and user messages (Merge text parts, simplify to string)
+          if ((msg.role === 'assistant' || msg.role === 'user') && Array.isArray(msg.content)) {
+            const parts = (msg.content as any[]).map(part => {
+              if (part.type === 'reasoning') return { type: 'text', text: part.text };
+              return part;
+            });
+
+            const mergedParts: any[] = [];
+            parts.forEach(part => {
+              const last = mergedParts[mergedParts.length - 1];
+              if (part.type === 'text' && last?.type === 'text') {
+                last.text += '\n' + part.text;
+              } else {
+                // Apply toolName fix for tool-calls while mapping
+                if (part.type === 'tool-call' && !part.toolName) {
+                  part.toolName = toolNameLookup.get(part.toolCallId) || 'unknown';
+                }
+                mergedParts.push(part);
+              }
+            });
+
+            // Simplify: if only text remains, convert to single string content
+            if (mergedParts.length === 1 && mergedParts[0].type === 'text') {
+              console.log(`[Middleware] Simplifying ${msg.role} message to string`);
+              return { ...msg, content: mergedParts[0].text };
+            }
+            
+            return { ...msg, content: mergedParts };
+          }
+
+          // B. Fix tool-result messages
+          if (msg.role === 'tool' && Array.isArray(msg.content)) {
             return {
               ...msg,
-              content: (msg.content as any[]).map(part => {
-                // A. Convert reasoning to text (Groq Harmony Fix)
-                if (part.type === 'reasoning') {
-                  console.log(`[Middleware] Converting reasoning to text: "${part.text.substring(0, 30)}..."`);
-                  return { type: 'text', text: part.text };
-                }
-
-                // B. Fix missing toolName
-                if ((part.type === 'tool-call' || part.type === 'tool-result') && !part.toolName) {
+              content: msg.content.map(part => {
+                if (part.type === 'tool-result' && !part.toolName) {
                   const inferredName = toolNameLookup.get(part.toolCallId) || 'unknown';
-                  console.log(`[Middleware] Fixing missing toolName for ${part.toolCallId} (${part.type}) -> ${inferredName}`);
                   return { ...part, toolName: inferredName };
                 }
                 return part;
