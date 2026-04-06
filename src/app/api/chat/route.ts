@@ -1,5 +1,5 @@
 import { createOpenAI } from '@ai-sdk/openai'
-import { streamText, convertToModelMessages, stepCountIs, tool } from 'ai'
+import { streamText, convertToModelMessages, stepCountIs, wrapLanguageModel, LanguageModelMiddleware } from 'ai'
 import { createProjectTools } from '@/lib/agents/tools'
 import { auth } from '@/auth'
 import { getOctokit, getFileContent } from '@/lib/github'
@@ -55,12 +55,74 @@ export async function POST(req: Request) {
         }),
       }));
 
+    // Custom middleware to fix "Tools should have a name!" error on Groq
+    const groqMiddleware: LanguageModelMiddleware = {
+      specificationVersion: 'v3',
+      transformParams: async ({ params }) => {
+        const toolNameLookup = new Map<string, string>();
+        
+        // 1. Build lookup table from any part that HAS a toolName
+        params.prompt.forEach(msg => {
+          if (Array.isArray(msg.content)) {
+            msg.content.forEach(part => {
+              if ((part.type === 'tool-call' || part.type === 'tool-result') && part.toolName) {
+                toolNameLookup.set(part.toolCallId, part.toolName);
+              }
+            });
+          }
+        });
+
+        // 2. Apply lookup and fix parts
+        const fixedPrompt = params.prompt.map(msg => {
+          if ((msg.role === 'assistant' || msg.role === 'tool') && Array.isArray(msg.content)) {
+            return {
+              ...msg,
+              content: (msg.content as any[]).map(part => {
+                // A. Convert reasoning to text (Groq Harmony Fix)
+                if (part.type === 'reasoning') {
+                  console.log(`[Middleware] Converting reasoning to text: "${part.text.substring(0, 30)}..."`);
+                  return { type: 'text', text: part.text };
+                }
+
+                // B. Fix missing toolName
+                if ((part.type === 'tool-call' || part.type === 'tool-result') && !part.toolName) {
+                  const inferredName = toolNameLookup.get(part.toolCallId) || 'unknown';
+                  console.log(`[Middleware] Fixing missing toolName for ${part.toolCallId} (${part.type}) -> ${inferredName}`);
+                  return { ...part, toolName: inferredName };
+                }
+                return part;
+              })
+            };
+          }
+          return msg;
+        }) as any;
+
+        const finalParams = { ...params, prompt: fixedPrompt };
+        
+        // Log final payload for debugging
+        console.log(`[Middleware] Final Prompt: ${finalParams.prompt.length} messages. Lookup size: ${toolNameLookup.size}`);
+        console.log("[Middleware] Final Prompt Structure (Sample roles & parts):", 
+          JSON.stringify(finalParams.prompt.map((m: any) => ({ 
+            role: m.role, 
+            parts: Array.isArray(m.content) ? m.content.map((p: any) => p.type) : 'string' 
+          })), null, 2)
+        );
+
+        return finalParams;
+      }
+    };
+
+    const model = wrapLanguageModel({
+      model: openai(modelName),
+      middleware: groqMiddleware,
+    });
+
     console.log("[Chat API POST] Final uiMessages Sample (last message parts):", JSON.stringify(uiMessages[uiMessages.length - 1]?.parts, null, 2));
 
     console.log("[Chat API POST] CoreMessages Length:", uiMessages.length);
 
     const result = streamText({
-      model: openai(modelName),
+      model,
       system: dynamicSystemPrompt,
       messages: await convertToModelMessages(uiMessages),
       tools: createProjectTools(projectId),
