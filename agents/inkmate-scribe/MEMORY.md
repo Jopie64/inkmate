@@ -44,6 +44,8 @@ Alle codebase en inline-documentatie dient in het Engels te zijn, de applicatie 
   - Frontend: De `useChat` hook stopt de payload van de assistant niet in `content`, maar in de sub-array `parts` (`m.parts.map(p => p.text)`). 
   - **Transport Logic (v6.0.34+):** Top-level `body` en `headers` in `useChat` zijn verplaatst naar de `DefaultChatTransport`. Configureer deze nu via `transport: new DefaultChatTransport({ body: { ... } })`.
   - **sendMessage (v6.0.34+):** Gebruik `sendMessage({ text: input })` in plaats van `content`. `role` hoeft niet meegegeven te worden voor de user op de client.
+  - **UIMessage Rendering:** In v6 wordt de user input in `m.parts` opgeslagen (als type `text`). Gebruik `m.parts` om berichten te renderen in plaats van de legacy `m.content`.
+  - **Groq & Tool Loops:** Groq's Harmony layer is strikt met tool-namen in de message history. `ToolLoopAgent` kan soms problemen geven met naam-propagatie bij OpenAI-compatible providers. Gebruik bij voorkeur `streamText` met `stopWhen: stepCountIs(n)` en `await convertToModelMessages(uiMessages)` voor een stabiele tool-loop die de required `name` velden voor Groq behoudt.
 
 ### On Environment & Tools
 - **PowerShell op Windows:** Er is geen native `grep` beschikbaar. Gebruik `Select-String` voor het zoeken in bestanden vanuit de terminal. Bijv: `Select-String -Path "file" -Pattern "query"`. Voor complexere zoekopdrachten in de codebase heeft de `grep_search` tool van de assistent de voorkeur (deze werkt wel).

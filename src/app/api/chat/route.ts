@@ -1,5 +1,5 @@
 import { createOpenAI } from '@ai-sdk/openai'
-import { createAgentUIStreamResponse, ToolLoopAgent } from 'ai'
+import { streamText, convertToModelMessages, stepCountIs, tool } from 'ai'
 import { createProjectTools } from '@/lib/agents/tools'
 import { auth } from '@/auth'
 import { getOctokit, getFileContent } from '@/lib/github'
@@ -57,18 +57,23 @@ export async function POST(req: Request) {
 
     console.log("[Chat API POST] Final uiMessages Sample (last message parts):", JSON.stringify(uiMessages[uiMessages.length - 1]?.parts, null, 2));
 
-    const chatAgent = new ToolLoopAgent({
+    console.log("[Chat API POST] CoreMessages Length:", uiMessages.length);
+
+    const result = streamText({
       model: openai(modelName),
-      instructions: dynamicSystemPrompt,
-      tools: createProjectTools(projectId)
+      system: dynamicSystemPrompt,
+      messages: await convertToModelMessages(uiMessages),
+      tools: createProjectTools(projectId),
+      stopWhen: stepCountIs(5),
+      onStepFinish: (step) => {
+        console.log(`[Chat Step]: Finish: ${step.finishReason}`);
+        if (step.toolCalls?.length) {
+          console.log(`[Chat Step] Tool Calls: ${step.toolCalls.map(tc => tc.toolName).join(", ")}`);
+        }
+      }
     })
 
-    console.log("[Chat API POST] Agent Stream started for uiMessages length:", uiMessages.length);
-
-    return createAgentUIStreamResponse({
-      agent: chatAgent,
-      uiMessages: uiMessages,
-    });
+    return result.toUIMessageStreamResponse();
   } catch (err: any) {
     console.error("[Chat API Error]:", err);
     return new Response(err.message || "Unknown server error during AI response.", { status: 500 })
