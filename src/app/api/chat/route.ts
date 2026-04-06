@@ -72,73 +72,53 @@ export async function POST(req: Request) {
           }
         });
 
-        // 2. Apply lookup and STRICT fix parts
+        // 2. Apply lookup and fix parts
         const fixedPrompt = params.prompt.map(msg => {
-          const role = msg.role;
-          let content = msg.content;
-
-          if (Array.isArray(content)) {
-            const parts = (content as any[]).map(part => {
-              // A. Convert reasoning to text (Groq Harmony Fix)
-              if (part.type === 'reasoning') {
-                return { type: 'text', text: part.text };
-              }
-
-              // B. Clean Text Parts
-              if (part.type === 'text') {
-                return { type: 'text', text: part.text };
-              }
-
-              // C. Clean & Fix Tool Calls
-              if (part.type === 'tool-call') {
-                return {
-                  type: 'tool-call',
-                  toolCallId: part.toolCallId,
-                  toolName: part.toolName || toolNameLookup.get(part.toolCallId) || 'unknown',
-                  input: part.input,
-                };
-              }
-
-              // D. Clean & Fix Tool Results
-              if (part.type === 'tool-result') {
-                return {
-                  type: 'tool-result',
-                  toolCallId: part.toolCallId,
-                  toolName: part.toolName || toolNameLookup.get(part.toolCallId) || 'unknown',
-                  output: part.output,
-                };
-              }
-
+          // A. Normalize assistant and user messages (Merge text parts, simplify to string)
+          if ((msg.role === 'assistant' || msg.role === 'user') && Array.isArray(msg.content)) {
+            const parts = (msg.content as any[]).map(part => {
+              if (part.type === 'reasoning') return { type: 'text', text: part.text };
               return part;
             });
 
-            // E. Merge consecutive text parts
             const mergedParts: any[] = [];
-            parts.forEach(p => {
+            parts.forEach(part => {
               const last = mergedParts[mergedParts.length - 1];
-              if (p.type === 'text' && last?.type === 'text') {
-                last.text += '\n' + p.text;
+              if (part.type === 'text' && last?.type === 'text') {
+                last.text += '\n' + part.text;
               } else {
-                mergedParts.push(p);
+                // Apply toolName fix for tool-calls while mapping
+                if (part.type === 'tool-call' && !part.toolName) {
+                  part.toolName = toolNameLookup.get(part.toolCallId) || 'unknown';
+                }
+                mergedParts.push(part);
               }
             });
-            content = mergedParts;
+
+            // fused mergedParts array (don't simplify to string to avoid SDK TypeErrors)
+            return { ...msg, content: mergedParts };
           }
 
-          // Return strictly cleaned message object
-          return { role, content };
+          // B. Fix tool-result messages
+          if (msg.role === 'tool' && Array.isArray(msg.content)) {
+            return {
+              ...msg,
+              content: msg.content.map(part => {
+                if (part.type === 'tool-result' && !part.toolName) {
+                  const inferredName = toolNameLookup.get(part.toolCallId) || 'unknown';
+                  return { ...part, toolName: inferredName };
+                }
+                return part;
+              })
+            };
+          }
+          return msg;
         }) as any;
 
         const finalParams = { ...params, prompt: fixedPrompt };
         
-        // Log final payload for debugging
-        console.log(`[Middleware] Final Prompt: ${finalParams.prompt.length} messages. Lookup size: ${toolNameLookup.size}`);
-        console.log("[Middleware] Final Prompt Structure (Sample roles & parts):", 
-          JSON.stringify(finalParams.prompt.map((m: any) => ({ 
-            role: m.role, 
-            parts: Array.isArray(m.content) ? m.content.map((p: any) => p.type) : 'string' 
-          })), null, 2)
-        );
+        // LOG FULL PARAMS AS REQUESTED
+        console.log(`[Middleware] Final Params (Pre-v3-send): ${JSON.stringify(finalParams, null, 2)}`);
 
         return finalParams;
       }
