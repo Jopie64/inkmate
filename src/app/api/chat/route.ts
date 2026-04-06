@@ -95,12 +95,7 @@ export async function POST(req: Request) {
               }
             });
 
-            // Simplify: if only text remains, convert to single string content
-            if (mergedParts.length === 1 && mergedParts[0].type === 'text') {
-              console.log(`[Middleware] Simplifying ${msg.role} message to string`);
-              return { ...msg, content: mergedParts[0].text };
-            }
-            
+            // fused mergedParts array (don't simplify to string to avoid SDK TypeErrors)
             return { ...msg, content: mergedParts };
           }
 
