@@ -45,7 +45,13 @@ Alle codebase en inline-documentatie dient in het Engels te zijn, de applicatie 
   - **Transport Logic (v6.0.34+):** Top-level `body` en `headers` in `useChat` zijn verplaatst naar de `DefaultChatTransport`. Configureer deze nu via `transport: new DefaultChatTransport({ body: { ... } })`.
   - **sendMessage (v6.0.34+):** Gebruik `sendMessage({ text: input })` in plaats van `content`. `role` hoeft niet meegegeven te worden voor de user op de client.
   - **UIMessage Rendering:** In v6 wordt de user input in `m.parts` opgeslagen (als type `text`). Gebruik `m.parts` om berichten te renderen in plaats van de legacy `m.content`.
-  - **Groq & Tool Loops:** Groq's Harmony layer is strikt met tool-namen in de message history. `ToolLoopAgent` kan soms problemen geven met naam-propagatie bij OpenAI-compatible providers. Gebruik bij voorkeur `streamText` met `stopWhen: stepCountIs(n)` en `await convertToModelMessages(uiMessages)` voor een stabiele tool-loop die de required `name` velden voor Groq behoudt.
+  - **Groq & Tool Loops (Harmony Protocol):** Groq's Harmony layer (OpenAI-compatible proxy) is extremely sensitive to payload structure in AI SDK v6.0:
+    - **Empty Text Parts:** `{ type: 'text', text: '' }` in assistant messages (common in turn 2 of a tool loop) causes a 400 "unsupported content types" error. Must be stripped.
+    - **Metadata Stripping:** `providerOptions`, `id`, and other AI SDK internal metadata in prompt parts must be removed before delivery.
+    - **Reasoning Parts:** `reasoning` parts in history are not yet supported by Harmony; convert them to `text`.
+    - **Top-level Fields:** Harmony may reject unknown fields like `includeRawChunks` in the call options.
+    - **Middleware Solution:** Use `experimental_wrapLanguageModel` with a `transformParams` middleware to "Ultra-Clean" the payload (strict mapping of role/content and part types).
+  - **Tool Name Propagaton:** For OpenAI-compatible providers, manually ensure `toolName` is present in both `tool-call` and `tool-result` parts in the prompt history, as the SDK may omit them during internal conversions.
 
 ### On Environment & Tools
 - **PowerShell op Windows:** Er is geen native `grep` beschikbaar. Gebruik `Select-String` voor het zoeken in bestanden vanuit de terminal. Bijv: `Select-String -Path "file" -Pattern "query"`. Voor complexere zoekopdrachten in de codebase heeft de `grep_search` tool van de assistent de voorkeur (deze werkt wel).
