@@ -38,6 +38,7 @@ Alle codebase en inline-documentatie dient in het Engels te zijn, de applicatie 
 ### On Hybrid Persistence & Performance
 - **Resilient Rendering:** Blokkeer de server-side render NOOIT met GitHub API-calls. De Dashboard en Project pagina's moeten altijd laden vanuit de Blob-cache. Haal GitHub-status pas asynchroon op de client binnen (bijv. in de `SyncStatus` component).
 - **Vercel Blob Caching:** Vercel Blob is "eventually consistent". Gebruik een browser-side cache (localStorage) om direct na een save de nieuwste versie te tonen, zelfs als de Cloud-versie nog niet ververst is.
+- **AI Context & Tools (Blob-First):** AI tools (zoals `listChapters`) en system prompt injecties moeten ALTIJD eerst in de Vercel Blob working copy kijken (`getFromWorkingDir`) voordat ze terugvallen op GitHub. Dit voorkomt dat de AI verouderde informatie ziet van vóór een sync.
 - **Sequential vs Parallel:** Blob-operaties (put/get) zijn traag op Vercel. Paralleliseer ze met `Promise.all` waar mogelijk (bijv. content opslaan en index ophalen) om de wachttijd voor de gebruiker te halveren.
 - **Multi-user Isolation:** Gebruik altijd de `userId` (vanuit de session) als root-prefix in de Blob store om data-isolatie te garanderen in een gedeelde Vercel Blob omgeving.
 

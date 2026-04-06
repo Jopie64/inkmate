@@ -2,6 +2,7 @@ import { tool } from 'ai';
 import { z } from 'zod';
 import { getChapterContentAction, saveChapterAction } from '@/app/actions/chapters';
 import { getOctokit, getFileContent, REPO_NAME } from '@/lib/github';
+import { getFromWorkingDir } from '@/lib/blob';
 import { auth } from '@/auth';
 
 export const createProjectTools = (projectId: string) => ({
@@ -11,8 +12,17 @@ export const createProjectTools = (projectId: string) => ({
     execute: async () => {
       const session = await auth();
       if (!session?.user?.name || !session?.accessToken) throw new Error("Unauthorized");
-      const octokit = await getOctokit(session.accessToken as string);
-      const indexStr = await getFileContent(octokit, session.user.name, `${projectId}/index.json`);
+      const userId = session.user.name;
+      
+      // 1. Try Blob First
+      let indexStr = await getFromWorkingDir(userId, projectId, 'main', 'index.json');
+      
+      // 2. Fallback to GitHub
+      if (!indexStr) {
+        const octokit = await getOctokit(session.accessToken as string);
+        indexStr = await getFileContent(octokit, userId, `${projectId}/index.json`);
+      }
+
       if (!indexStr) return { chapters: [] };
       const projectIndex = JSON.parse(indexStr);
       return { chapters: projectIndex.chapters || [] };

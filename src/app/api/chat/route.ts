@@ -3,6 +3,7 @@ import { streamText, convertToModelMessages, stepCountIs, wrapLanguageModel, Lan
 import { createProjectTools } from '@/lib/agents/tools'
 import { auth } from '@/auth'
 import { getOctokit, getFileContent } from '@/lib/github'
+import { getFromWorkingDir } from '@/lib/blob'
 
 export const maxDuration = 30
 
@@ -32,15 +33,21 @@ export async function POST(req: Request) {
       dynamicSystemPrompt += `\n\nProject ID: ${projectId}`;
       const octokit = await getOctokit(session.accessToken as string);
       
-      // Dynamic Context Engine Injection
+      // Dynamic Context Engine Injection (Blob-First)
       if (contextConfig?.chapterSummaries) {
         try {
-          const indexStr = await getFileContent(octokit, session.user.name, `${projectId}/index.json`);
+          const userId = session.user.name;
+          let indexStr = await getFromWorkingDir(userId, projectId, 'main', 'index.json');
+          
+          if (!indexStr) {
+            indexStr = await getFileContent(octokit, userId, `${projectId}/index.json`);
+          }
+
           if (indexStr) {
             const index = JSON.parse(indexStr);
             dynamicSystemPrompt += `\n\nBekende hoofdstukken:\n${JSON.stringify(index.chapters || [], null, 2)}`;
           }
-        } catch (e) { console.error("Could not load summaries context"); }
+        } catch (e) { console.error("Could not load summaries context", e); }
       }
     }
     
